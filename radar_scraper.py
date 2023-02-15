@@ -1,3 +1,5 @@
+import os
+import sys
 from io import BytesIO
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -8,8 +10,9 @@ from selenium.common.exceptions import TimeoutException
 from PIL import Image
 from datetime import datetime
 
-radar_site = "FFC"
-radar_layer = "N0B"
+radar_site = sys.argv[1] 
+radar_layer = sys.argv[2] 
+
 url = "https://weather.cod.edu/satrad/nexrad/index.php?parms="+radar_site+"-"+radar_layer+"-0-24-100-usa-rad"
 
 options = webdriver.ChromeOptions()
@@ -53,6 +56,7 @@ time_stamp =  datetime.now().strftime("%m_%d_%Y-%H_%M_%S")
 radar_location = url.split("parms=")[1][:3]
 radar_layer_name = ""
 
+# check radar layer
 if(radar_layer == "N0B"):
     radar_layer_name = "baseRef"
 elif (radar_layer == "N0G"):
@@ -62,7 +66,12 @@ elif (radar_layer == "N0C"):
 elif (radar_layer == "DVL"):
     radar_layer_name = "VIL"
 
-image.save(f"{radar_location}-{radar_layer_name}-{time_stamp}.png")
+directory = "RadarDump"
+
+if not os.path.exists(directory):
+    os.makedirs(directory)
+
+image.save(f"{directory}/{radar_location}-{radar_layer_name}-{time_stamp}.png")
 
 # Closes web driver window
 driver.quit()

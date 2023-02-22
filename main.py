@@ -41,7 +41,7 @@ def manual_scrape():
     rad_loc = location_list.get(location_list.curselection())
     run_scrape(rad_loc)
     
-
+# Radar Location arrays, storm arrays
 
 location_options = [
     "ABR", "ABX", "ACX", "AEC", "AFX", "AHG", "AIH", "AKQ", "AMA", "AMX", "APX", "ARX", "ATX", "BBX", "BGM", "BHX", 
@@ -58,6 +58,8 @@ location_options = [
     "TWX", "TYX", "UDX", "UEX", "VAX", "VBX", "VNX", "VTX", "VWX", "YUX"]
 
 layer_options = ["Base Reflectivity","Base Velocity","Correlation Coefficient","Vertically Integrated Liquid"]
+selected_radars = []
+storms =[]
 
 #Main UI
 window = tk.Tk()
@@ -66,16 +68,29 @@ window.geometry("1200x800")
 window.config(bg='#242424')
 window.state('zoomed')
 
+
+#Left side
+left_frame = tk.Frame(window)
+left_frame.pack(side=LEFT, padx=10, pady=10)
+
 #Radar image
 loaded_radar = tk.PhotoImage(file="testimg.png")
-image_label = tk.Label(window, image=loaded_radar,pady=20,padx=20)
+image_label = tk.Label(left_frame, image=loaded_radar)
 image_label.pack()
 
+last_scan = tk.Label(left_frame,text="Last scan: --:--", fg="white", bg="#242424", font=("Arial", 12, "bold"),anchor="w")
+last_scan.pack(fill=X)
+
+#Right side
+right_frame = tk.Frame(window,bg="#242424")
+right_frame.pack(side=LEFT, padx=10, pady=10)
+
 #Radar list
-location_list = tk.Listbox(window, height=10, width=20, bg='#E5E5E5', bd=0, highlightthickness=0)
 label_text = "Radar"
-label = tk.Label(location_list, text=label_text, fg="white", bg="#242424", font=("Arial", 12, "bold"),)
-label.place(x=0, y=0, anchor="nw")
+label = tk.Label(right_frame,text=label_text, fg="white", bg="#242424", font=("Arial", 12, "bold"),anchor="w")
+label.pack(fill=X)
+
+location_list = tk.Listbox(right_frame, height=10, width=20, bg='#E5E5E5', bd=0, highlightthickness=0)
 for location in location_options:
     location_list.insert(tk.END, location)
 
@@ -86,12 +101,54 @@ my_scrollbar = tk.Scrollbar(location_list, orient=tk.VERTICAL, command=location_
 location_list.configure(yscrollcommand=my_scrollbar.set)
 my_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 location_list.select_set(location_options.index("FFC"))
-location_list.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=20, pady=20)
+location_list.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
 
-manual_run_button = tk.Button(window, text="Run", command=manual_scrape)
-manual_run_button.pack()
+#Selected Radar List
+label_text = "Selected to be scanned"
+label = tk.Label(right_frame,text=label_text, fg="white", bg="#242424", font=("Arial", 12, "bold"),anchor="w")
+label.pack(fill=X)
 
-time_remaining_label = tk.Label(window, text="Time until next scan - --:--")
+location_list = tk.Listbox(right_frame, height=10, width=20, bg='#E5E5E5', bd=0, highlightthickness=0)
+for location in selected_radars:
+    location_list.insert(tk.END, location)
+
+location_list.selection_set(location_options.index(rad_loc))
+location_list.see(location_options.index(rad_loc))
+
+my_scrollbar = tk.Scrollbar(location_list, orient=tk.VERTICAL, command=location_list.yview)
+location_list.configure(yscrollcommand=my_scrollbar.set)
+my_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+location_list.select_set(location_options.index("FFC"))
+location_list.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+
+remove_button = tk.Button(right_frame, text="Remove", command=manual_scrape,padx=20,pady=10)
+remove_button.pack(side=RIGHT, padx=30, pady= 20)
+
+#Storms
+label_text = "Storms"
+label = tk.Label(right_frame,text=label_text, fg="white", bg="#242424", font=("Arial", 12, "bold"),anchor="w")
+label.pack(fill=X)
+
+location_list = tk.Listbox(right_frame, height=10, width=20, bg='#E5E5E5', bd=0, highlightthickness=0)
+for storm in storms:
+    location_list.insert(tk.END, location)
+
+location_list.selection_set(location_options.index(rad_loc))
+location_list.see(location_options.index(rad_loc))
+
+my_scrollbar = tk.Scrollbar(location_list, orient=tk.VERTICAL, command=location_list.yview)
+location_list.configure(yscrollcommand=my_scrollbar.set)
+my_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+location_list.select_set(location_options.index("FFC"))
+location_list.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+
+time_remaining_label = tk.Label(right_frame, text="Time until next scan - --:--", fg="white", bg="#242424",font=("Arial", 12, "bold"))
 time_remaining_label.pack()
+
+details_button = tk.Button(right_frame, text="Details", command=manual_scrape,padx=20,pady=10)
+details_button.pack(side=RIGHT, padx=30, pady= 20)
+manual_run_button = tk.Button(right_frame, text="Run", command=manual_scrape,padx=20,pady=10)
+manual_run_button.pack(side=RIGHT, padx=30, pady= 20)
+
 
 window.mainloop()

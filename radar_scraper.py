@@ -12,7 +12,6 @@ from PIL import Image
 from datetime import datetime
 
 radar_site = sys.argv[1] 
-#radar_layer = sys.argv[2] 
 url = ""
 
 options = webdriver.ChromeOptions()
@@ -25,7 +24,7 @@ driver = webdriver.Chrome()
 driver.set_window_size(1920,1080)
 
 #obtains the canvas image, converts it to png
-driver.implicitly_wait(5)
+driver.implicitly_wait(7.5)
 
 def run_capture(driver, radar_layer, file_name):
     url = "https://weather.cod.edu/satrad/nexrad/index.php?parms="+radar_site+"-"+radar_layer+"-0-24-100-usa-rad"
@@ -33,13 +32,13 @@ def run_capture(driver, radar_layer, file_name):
 
     try:
         # Purposefully false to give wait period, adding canvas causes a blank element to be saved
-        element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, "RadarImage")))
+        element = WebDriverWait(driver, 7.5).until(EC.presence_of_element_located((By.ID, "RadarImage")))
     except TimeoutException:
         image = crop_screenshot(driver)
     else:
         image = crop_screenshot(driver, element)
     
-    time_stamp =  datetime.now().strftime("%m_%d_%Y-%H_%M_%S")
+    time_stamp =  datetime.now().strftime("%m_%d_%Y-%H_%M")
     radar_location = url.split("parms=")[1][:3]
     radar_layer_name = ""
 

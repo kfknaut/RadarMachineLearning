@@ -1,6 +1,5 @@
 import os
 import sys
-import threading
 from io import BytesIO
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -12,6 +11,7 @@ from PIL import Image
 from datetime import datetime
 
 radar_site = sys.argv[1] 
+directory = sys.argv[2]
 url = ""
 
 options = webdriver.ChromeOptions()
@@ -52,13 +52,12 @@ def run_capture(driver, radar_layer, file_name):
     elif (radar_layer == "DVL"):
         radar_layer_name = "VIL"
 
-    directory = r"E:\RadarDump"
     dir_day = datetime.today().strftime("%m_%d_%Y")
 
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    new_date_dir = os.path.join(r"E:\RadarDump",f"{dir_day}")
+    new_date_dir = os.path.join(directory,f"{dir_day}")
     if not os.path.exists(new_date_dir):
         os.makedirs(new_date_dir)
 

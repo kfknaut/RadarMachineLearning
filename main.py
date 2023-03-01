@@ -1,10 +1,21 @@
+import os
 import threading
 import subprocess
 import tkinter as tk
+import configparser
+
 from tkinter import *
 from PIL import Image, ImageTk
-from datetime import datetime
+from datetime import datetime, timedelta
+from tkinter import filedialog
 
+# Config and database
+config = configparser.ConfigParser()
+section = 'Directories'
+key = 'RadarDump'
+
+# Variables for the UI, function of the program
+directory = r"E:\RadarDump"
 rad_loc = "FFC- Peachtree City, GA"
 local_code = rad_loc[:3]
 current_city = local_code
@@ -14,15 +25,41 @@ dir_path = "/RadarDump"
 countdown = 330
 updater = None
 
+# Time slider variables
+start_time = ""
+end_time = ""
+
 recent_base = {}
 recent_velocity = {}
 recent_cc = {}
 recent_vil = {}
 
+# Database management and configuratoin
+if not os.path.exists('config.ini'):
+    with open('config.ini', 'w') as f:
+        config.write(f)
+
+config.read('config.ini')
+if not config.has_section(section):
+    config.add_section(section)
+directory = config.get(section, key, fallback='')
+
+if not directory:
+    directory = filedialog.askdirectory()
+    if directory:
+        config.set(section, key, directory)
+        with open('config.ini', 'w') as f:
+            config.write(f)
+            
+# UI and Operations
 def run_scrape():
-    global updater, last_scan_time
+    global updater, last_scan_time, start_time,end_time,directory
+
     last_scan_time = datetime.now().strftime("%H:%M")
     last_scan_label.config(text=f"Last scan time: {last_scan_time}")
+
+    end_time = (datetime.now() - timedelta(minutes=30)).strftime("%H:%M")
+    start_time = (datetime.now() + timedelta(minutes=30)).strftime("%H:%M")
 
     if updater is not None:
         window.after_cancel(updater)
@@ -40,8 +77,7 @@ def run_scrape():
 
 # Individual thread call
 def scan_radar(radars_to_scan):
-    subprocess.call(["python", "radar_scraper.py", radars_to_scan])
-
+    subprocess.call(["python", "radar_scraper.py", radars_to_scan, directory])
 
 def update_timer(time_remaining):
     global countdown, updater
@@ -272,7 +308,7 @@ details_button.pack(side=RIGHT, padx=30, pady= 20)
 manual_run_button = tk.Button(right_frame, text="Run", command=manual_scrape,padx=20,pady=10,font=("Arial", 16, "bold"),bg="#87CEF6")
 manual_run_button.pack(side=RIGHT, padx=30, pady= 20)
 
-time_slider = tk.Scale(right_frame,from_=0, to=10, orient=tk.HORIZONTAL, length=400,fg="white", bg="#242424")
+time_slider = tk.Scale(right_frame,from_=-30, to=30, orient=tk.HORIZONTAL, length=600,fg="white", bg="#242424",tickinterval=6,resolution=6, label="Minutes",font=("Arial", 16, "bold"))
 time_slider.pack(side=RIGHT,pady=20)
 
 add_default_loc()

@@ -10,12 +10,13 @@ from datetime import datetime, timedelta
 from tkinter import filedialog
 
 # Config and database
+directory = r"E:\RadarDump"
+subirectories = os.listdir(directory)
 config = configparser.ConfigParser()
 section = 'Directories'
 key = 'RadarDump'
 
 # Variables for the UI, function of the program
-directory = r"E:\RadarDump"
 rad_loc = "FFC- Peachtree City, GA"
 local_code = rad_loc[:3]
 current_city = local_code
@@ -103,6 +104,8 @@ def add_default_loc():
     if "FFC- Peachtree City, GA" not in selected_list.get(0, END):
         selected_list.insert(END, "FFC- Peachtree City, GA")
         code_list.append("FFC")
+    if "test" not in storm_list.get(0, END):
+        storm_list.insert(END, "test")
 
 def add_rad_loc():
     global current_city
@@ -135,71 +138,74 @@ def remove_rad_loc():
 # Toggle cities
 def next_city():
     global current_radar_toggle, current_city, code_list
-    print(current_city)
     if len(code_list) > 1:
         index = code_list.index(current_city)
         index += 1
         index %= len(code_list)
         current_city = code_list[index]
-        print(current_city)
         current_radar_toggle.config(text=current_city)
 
 def last_city():
     global current_radar_toggle, current_city, code_list
-    print(current_city)
     if len(code_list) > 1:
         index = code_list.index(current_city)
         index -= 1
         index %= len(code_list)
         current_city = code_list[index]
-        print(current_city)
         current_radar_toggle.config(text=current_city)
+
+# Storm details button
+def storm_details():
+
+    detail_window = tk.Toplevel()
+    detail_window.title("Storm Details")
+    detail_window.geometry("1200x800")
+    detail_window.config(bg='#242424')
+    detail_window.state('zoomed')
+
+    dt_direction = tk.Label(detail_window, text="Direction: ",font=("Arial", 16, "bold"),bg='#242424', fg='white')
+    dt_direction.pack(padx=50,pady=50)
+
+    def back_button():
+        detail_window.destroy()
+        window.deiconify()
+
+    back_button = tk.Button(detail_window, text='Back', font=("Arial", 16, "bold"), bg="#87CEF6", command=back_button)
+    back_button.pack(pady=20)
 
 # Radar Location arrays, storm arrays
 location_options_full = [
-    "ABR- Aberdeen, SD", "ABX- Albany, NY", "ACG- Albany, GA", "AEC- Wichita, KS", "AFC- Anchorage, AK", "AFG- Fairbanks, AK", 
-    "AFW- Fort Worth, TX", "AGC- Pittsburgh, PA", "AKQ- Wakefield, VA", "AMA- Amarillo, TX", "APX- Gaylord, MI", "ARX- La Crosse, WI", 
-    "ATX- Seattle, WA", "BBX- Binghamton, NY", "BGM- Binghamton, NY", "BHX- Eureka, CA", "BIS- Bismarck, ND", "BLX- Billings, MT", 
+    "ABC- Bethel, AK", "ABR- Aberdeen, SD", "ABX- Albuquerque, NM", "ACG- Biorka Island, AK", "AEC- Nome, AK",
+    "AHG- Kenai, AK", "AIH- Middleton Island, AK", "AMX - Miami, FL", "AKC- King Salmon, AK", "AKQ- Wakefield, VA", "AMA- Amarillo, TX", 
+    "APD- Fairbanks, AK", "APX- Gaylord, MI", "ARX- La Crosse, WI", 
+    "ATX- Seattle, WA", "BBX- Beale AFB, CA","BGM- Binghamton, NY", "BHX- Eureka, CA", "BIS- Bismarck, ND", "BLX- Billings, MT", 
     "BMX- Birmingham, AL", "BOX- Boston, MA", "BRO- Brownsville, TX", "BUF- Buffalo, NY", "BYX- Key West, FL", "CAE- Columbia, SC", 
-    "CBW- Caribou, ME", "CBX- Great Falls, MT", "CCX- State College, PA", "CLE- Cleveland, OH", "CLX- Charleston, WV", "CRI- Raleigh, NC", 
-    "CRP- Corpus Christi, TX", "CXX- Fort Campbell, KY", "DDC- Dodge City, KS", "DFX- Laughlin Air Force Base, TX", "DGX- Honolulu, HI", 
+    "CBW- Caribou, ME", "CBX- Boise, ID", "CCX- State College, PA", "CLE- Cleveland, OH", "CLX- Charleston Air Force Base, SC", "CRI-", 
+    "CRP- Corpus Christi, TX", "CXX - Burlington, VT", "CYS- Cheyenne, WY", "DAX- Sacramento, CA","DDC- Dodge City, KS", "DFX- Laughlin Air Force Base, TX", 
+    "DGX- Jackson, MS", "DIX - Philadelphia, PA",
     "DLH- Duluth, MN", "DMX- Des Moines, IA", "DOX- Dover Air Force Base, DE", "DTX- Detroit, MI", "DVN- Quad Cities, IA/IL", 
-    "DYX- Dyess Air Force Base, TX", "EAX- Kansas City/Pleasant Hill, MO", "EMX- Elmira, NY", "ENX- Albany, NY", "EOX- Fort Rucker, AL", 
-    "EPZ- El Paso, TX/Santa Teresa, NM", "EQX- Tinker Air Force Base, OK", "EVX- Evansville, IN", "EWN- Newport/Morehead City, NC", 
-    "EWX- Austin/San Antonio, TX", "FCX- Blacksburg, VA", "FDR- Frederick, OK", "FDX- Grand Forks Air Force Base, ND", 
-    "FFC- Peachtree City, GA", "FSD- Sioux Falls, SD", "FSX- Fort Stewart, GA", "FTG- Denver/Boulder, CO", "FWS- Dallas/Fort Worth, TX", 
+    "DYX- Dyess Air Force Base, TX", "EAX- Kansas City/Pleasant Hill, MO", "EMX- Tuscon, AZ", "ENX- Albany, NY", "EOX- Fort Rucker, AL", 
+    "EPZ- El Paso, TX/Santa Teresa, NM", "ESX- Las Vegas, NV", "EVX- Valparaiso/Eglin AFB, FL", 
+    "EWX- Austin/San Antonio, TX", "Edwards AFB, CA", "FCX- Blacksburg, VA", "FDR- Frederick, OK", "FDX- Cannon AFB, NM", 
+    "FFC- Peachtree City, GA", "FSD- Sioux Falls, SD", "FSX- Flagstaff, AZ", "FTG- Denver/Boulder, CO", "FWS- Dallas/Fort Worth, TX", 
     "GGW- Glasgow, MT", "GJX- Grand Junction, CO", "GLD- Goodland, KS", "GRB- Green Bay, WI", "GRK- Fort Hood, TX", "GRR- Grand Rapids, MI", 
-    "GSP- Greenville/Spartanburg, SC", "GWX- Charleston Air Force Base, SC", "GYX- Gray/Portland, ME", "HDX- Grand Forks, ND", 
-    "HGX- Houston/Galveston, TX", "HNX- San Joaquin Valley/Hanford, CA", "HNX- San Joaquin Valley/Hanford, CA", "HPX- Fort Campbell, KY", 
-    "HTX- Houston, TX", "HWA- Honolulu, HI", "ICT- Wichita, KS", "ICX- Indianapolis, IN", "ILN- Wilmington, OH", "ILX- Central Illinois", 
-    "IND- Indianapolis, IN", "INX- Northern Indiana", "IWA- Phoenix, AZ", "IWX- Northern Indiana", "JAX- Jacksonville, FL", "JGX- Robins Air Force Base, GA", 
-    "JKL- Jackson, KY", "JUA- Juneau, AK", "LBB- Lubbock, TX", "LCH- Lake Charles, LA", "LIX- New Orleans/Baton Rouge, LA", "LNX - North Platte, NE", 
-    "LOT - Chicago, IL", "LRX - Little Rock, AR", "LSX - St. Louis, MO", "LTX - Wilmington, NC", "LZK - Little Rock, AR", "MAF - Midland/Odessa, TX", 
-    "MAX - Medford, OR", "MBX - Memphis, TN", "MHX - Newport/Morehead City, NC", "MKX - Milwaukee, WI", "MLB - Melbourne, FL", "MOB - Mobile, AL", 
-    "MPX - Twin Cities/Chanhassen, MN", "MQT - Marquette, MI", "MRX - Knoxville/Tri-Cities, TN", "MSX - Missoula, MT", "MTX - Salt Lake City, UT", 
-    "MUX - San Angelo, TX", "MVX - Jackson, MS", "MXX - Fort Drum, NY", "NAX - Nashville, TN", "NQA - Memphis, TN", "OHX - Nashville, TN", 
-    "OKX - Upton, NY", "OTX - Spokane, WA", "PAH - Paducah, KY", "PBZ - Pittsburgh, PA", "PDT - Pendleton, OR", "PHI - Mount Holly/Philadelphia, PA", 
-    "PIH - Pocatello/Idaho Falls, ID", "PIX - Phoenix, AZ", "PKD - Minot Air Force Base, ND", "PUB - Pueblo, CO", "PUX - Pueblo, CO", 
-    "RAX - Roanoke, VA", "RGX - Reno, NV", "RIW - Riverton, WY", "RLX - Charleston, WV", "RTX - Portland, OR", 
-    "SFX - San Francisco Bay Area/Monterey, CA", "SGF - Springfield, MO", "SHV - Shreveport, LA", "SOX - Medford, OR", "SRX - Fort Campbell, KY", 
-    "TBW - Tampa Bay Area/Ruskin, FL", "TFX - Great Falls, MT", "TLH - Tallahassee, FL", "TLX - Oklahoma City, OK", "TWX - Tyndall Air Force Base, FL", 
-    "TYX - Fort Drum, NY", "UDX - Rapid City, SD", "UEX - Hastings, NE", "VAX - Vero Beach, FL", "VBX - Vandenberg Air Force Base, CA", 
-    "VNX - Vance Air Force Base, OK", "VTX - Burlington, VT", "VWX - Louisville, KY", "YUX - Montreal, Quebec, Canada"
-    ]
-
-location_options = [
-    "ABR", "ABX", "ACX", "AEC", "AFX", "AHG", "AIH", "AKQ", "AMA", "AMX", "APX", "ARX", "ATX", "BBX", "BGM", "BHX", 
-    "BLX", "BMX", "BOX", "BRO", "BUF", "BYX", "CAE", "CBW", "CBX", "CCX", "CXX", "CYS", "DAX", "DDC", "DFX", "DGX", 
-    "DIX", "DLH", "DMX", "DOX", "DTX", "DVN", "DXX", "DYX", "DZX", "EAX", "EMX", "ENX", "EOX", "EPZ", "ESX", "EUX", 
-    "EVX", "EYX", "FCX", "FDR", "FDX", "FFC", "FSD", "FSX", "FTG", "FWS", "GGW", "GJX", "GLD", "GRB", "GRR", "GRK", 
-    "GSP", "GYX", "HDX", "HGX", "HNX", "HPX", "HTX", "HWC", "ICT", "ICX", "ILN", "ILX", "IND", "INX", "IWA", "IWX", 
-    "JAX", "JGX", "JKL", "JUA", "LBB", "LCH", "LGX", "LIX", "LNX", "LOT", "LRX", "LSX", "LTX", "LWX", "AKQ", "ALY", 
-    "AMA", "APX", "ARX", "LOT", "ILX", "BMX", "BOX", "FDR", "FFC", "FGF", "MPX", "ABR", "GID", "GGW", "GLD", "GRB", 
-    "GRR", "GSP", "LZK", "HGX", "HNX", "ICT", "ILN", "IND", "IWX", "JAX", "LKN", "EAX", "LZK", "LBB", "LCH", "LIX", 
-    "LNX", "LOT", "LRX", "LSX", "LTX", "MAF", "MAX", "MBX", "MHX", "MKX", "MLB", "MOB", "MPX", "MQT", "MRX", "MSX", 
-    "MTX", "MUX", "MVX", "MXX", "NAX", "NQA", "OHX", "OKX", "OTX", "PAH", "PBZ", "PDT", "PHI", "PIH", "PIX", "PKD", 
-    "PUB", "PUX", "RAX", "RGX", "RIW", "RLX", "RTX", "SFX", "SGF", "SHV", "SOX", "SRX", "TBW", "TFX", "TLH", "TLX", 
-    "TWX", "TYX", "UDX", "UEX", "VAX", "VBX", "VNX", "VTX", "VWX", "YUX"
+    "GSP- Greenville/Spartanburg, SC", "GWX- Columbus AFB, MS", "GYX- Gray/Portland, ME", "HDX- Holloman AFB, NM", 
+    "HGX- Houston/Galveston, TX", "HKI- Honolulu, HI", "HKM- Waimea, HI", "HMO- Maunaloa, HI", "HNX- San Joaquin Valley/Hanford, CA", "HPX- Fort Campbell, KY", 
+    "HTX- Huntsville, AL", "HWA- Naalehu, HI", "ICT- Wichita, KS", "ICX- Cedar City, UT", "ILN- Cincinnati/Wilmington, OH", "ILX- Lincoln, IL", 
+    "IND- Indianapolis, IN", "INX- Tulsa, OK", "IWA- Phoenix, AZ", "IWX- North Webster, IN", "JAX- Jacksonville, FL", "JGX- Robins Air Force Base, GA", 
+    "JKL- Jackson, KY", "LBB- Lubbock, TX", "LCH- Lake Charles, LA", "LGX - Langley Hill, WA", "LIX- New Orleans/Baton Rouge, LA", "LNX - North Platte, NE", 
+    "LOT- Chicago, IL", "LRX- ELko, NV", "LSX - St. Louis, MO", "LTX - Wilmington, NC", "LVX - Louisville, KY", "LWX - Sterling, VA", "LZK - Little Rock, AR", 
+    "MAF - Midland/Odessa, TX", 
+    "MAX- Medford, OR", "MBX - Minot AFB, ND", "MHX - Newport/Morehead City, NC", "MKX - Milwaukee, WI", "MLB - Melbourne, FL", "MOB - Mobile, AL", 
+    "MPX- Twin Cities/Chanhassen, MN", "MQT - Marquette, MI", "MRX - Knoxville/Tri-Cities, TN", "MSX - Missoula, MT", "MTX - Salt Lake City, UT", 
+    "MUX-  San Francisco, CA", "MVX- Grand Forks, ND", "MXX - Maxwell AFB, AL", "NKX- San Diego, CA", "NQA - Memphis, TN", 
+    "OAX- Omaha, NE", "OHX - Nashville, TN", "OKX- Upton, NY", "OTX - Spokane, WA", "PAH - Paducah, KY", "PBZ - Pittsburgh, PA", "PDT - Pendleton, OR", 
+    "POE- Fort Polk, LA", "PUX - Pueblo, CO", 
+    "RAX- Raleigh, NC", "RGX - Reno, NV", "RIW - Riverton, WY", "RLX - Charleston, WV", "RTX - Portland, OR", 
+    "SFX- Pocatello, ID", "SGF- Springfield, MO", "SHV- Shreveport, LA", "SJT- San Angelo, TX", "SOX - Santa Ana Mountains, CA", "SRX- Fort Smith, AR", 
+    "TBW- Tampa Bay Area/Ruskin, FL", "TFX- Great Falls, MT", "TLH- Tallahassee, FL", "TLX- Oklahoma City, OK", "TWX- Topeka, KS", 
+    "TYX- Fort Drum, NY", "UDX- Rapid City, SD", "UEX- Hastings, NE", "VAX- Moody AFB, GA", "VBX- Vandenberg Air Force Base, CA", 
+    "VNX- Vance Air Force Base, OK", "VTX- Los Angeles, CA", "VWX- Evansville, IN", "YUX- Yuma, AZ"
     ]
 
 layer_options = ["Base Reflectivity","Base Velocity","Correlation Coefficient","Vertically Integrated Liquid"]
@@ -212,7 +218,7 @@ window.title("Radar Scraper")
 window.geometry("1200x800")
 window.config(bg='#242424')
 window.state('zoomed')
-
+window.iconphoto(True,ImageTk.PhotoImage(Image.open('radar.png')))
 
 #----------------------------------- Left side -----------------------------------
 left_frame = tk.Frame(window,bg="#242424")
@@ -302,7 +308,7 @@ storm_list.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
 time_remaining_label = tk.Label(right_frame, text="Time until next scan - --:--", fg="white", bg="#242424",font=("Arial", 16, "bold"))
 time_remaining_label.pack()
 
-details_button = tk.Button(right_frame, text="Details",padx=20,pady=10,font=("Arial", 16, "bold"),bg="#87CEF6")
+details_button = tk.Button(right_frame, text="Details",padx=20,pady=10,font=("Arial", 16, "bold"),bg="#87CEF6",command=storm_details)
 details_button.pack(side=RIGHT, padx=30, pady= 20)
 
 manual_run_button = tk.Button(right_frame, text="Run", command=manual_scrape,padx=20,pady=10,font=("Arial", 16, "bold"),bg="#87CEF6")

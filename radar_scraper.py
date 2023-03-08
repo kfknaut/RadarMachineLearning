@@ -2,6 +2,8 @@ import os
 import sys
 import glob
 import numpy as np
+import subprocess
+
 from io import BytesIO
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -105,6 +107,8 @@ def check_identical_scan(loc, lay):
     if diff == 0:
         os.remove(current.filename)
         print("KEEEEEEEEELLLLLL")
+    #else:
+        #subprocess.call(["python", "storm_identification_main.py"])
 
 rad_layers = ["N0B", "N0G", "N0C", "DVL"]
 

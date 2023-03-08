@@ -11,12 +11,30 @@ from PIL import Image, ImageTk, ImageChops
 from datetime import datetime, timedelta
 from tkinter import filedialog
 
-# Config and database
-directory = r"E:\RadarDump"
-subirectories = os.listdir(directory)
 config = configparser.ConfigParser()
 section = 'Directories'
 key = 'RadarDump'
+
+# Config and database
+directory = r"E:\RadarDump"
+if not os.path.exists(directory):
+    # Database management and configuration
+    print("Entering path setup...")
+    if not os.path.exists('config.ini'):
+        print("Config does not exist, creating one")
+        with open('config.ini', 'w') as f:
+            config.write(f)
+
+    config.read('config.ini')
+    if not config.has_section(section):
+        print("Config section does not exist, creating one")
+        config.add_section(section)
+    directory = config.get(section, key, fallback='')
+    if not os.path.exists(directory):
+        print("Directory does not exist, asking for one")
+        select_file_location()
+
+subirectories = os.listdir(directory)
 
 # Variables for the UI, function of the program
 rad_loc = "FFC- Peachtree City, GA"
@@ -25,7 +43,7 @@ current_city = local_code
 code_list = []
 last_scan_time = "--:--"
 dir_path = "/RadarDump"
-delay = 0
+delay = 300
 countdown = delay + 30
 updater = None
 
@@ -36,23 +54,6 @@ current_layer = layer_options[0]
 # Time slider variables
 start_time = ""
 end_time = ""
-
-# Database management and configuratoin
-if not os.path.exists('config.ini'):
-    with open('config.ini', 'w') as f:
-        config.write(f)
-
-config.read('config.ini')
-if not config.has_section(section):
-    config.add_section(section)
-directory = config.get(section, key, fallback='')
-
-if not directory:
-    directory = filedialog.askdirectory()
-    if directory:
-        config.set(section, key, directory)
-        with open('config.ini', 'w') as f:
-            config.write(f)
             
 # UI and Operations
 def run_scrape():
@@ -77,6 +78,14 @@ def run_scrape():
         thread.join()
 
     update_timer(delay + 30)
+
+def select_file_location():
+    global directory, config, key,section
+    directory = filedialog.askdirectory()
+    if directory:
+        config.set(section, key, directory)
+        with open('config.ini', 'w') as f:
+            config.write(f)
 
 # Individual thread call
 def scan_radar(radars_to_scan):
@@ -427,7 +436,7 @@ selected_option = tk.StringVar(value=delay_options[4])
 
 def update_delay(*args):
     global delay
-    delay = int(selected_option.get()) * 60
+    delay = (int(selected_option.get()) * 60) - 60
     print(delay)
 selected_option.trace("w", update_delay)
 
@@ -438,10 +447,13 @@ time_remaining_label = tk.Label(right_frame, text="Time until next scan - --:--"
 time_remaining_label.pack()
 
 details_button = tk.Button(right_frame, text="Details",padx=20,pady=10,font=("Arial", 16, "bold"),bg="#87CEF6",command=storm_details)
-details_button.pack(side=RIGHT, padx=30, pady= 20)
+details_button.pack(side=RIGHT, padx=20, pady= 20)
 
 manual_run_button = tk.Button(right_frame, text="Run", command=manual_scrape,padx=20,pady=10,font=("Arial", 16, "bold"),bg="#87CEF6")
-manual_run_button.pack(side=RIGHT, padx=30, pady= 20)
+manual_run_button.pack(side=RIGHT, padx=20, pady= 20)
+
+file_select_button = tk.Button(right_frame, text="📁",padx=10,pady=10,font=("Arial", 16, "bold"),bg="#E5E5E5", command=select_file_location)
+file_select_button.pack(side=RIGHT, padx=20, pady= 20)
 
 time_slider = tk.Scale(right_frame,from_=-30, to=30, orient=tk.HORIZONTAL, length=600,fg="white", bg="#242424",tickinterval=5,resolution=1, label="Frames",font=("Arial", 12, "bold"),showvalue=False)
 time_slider.pack(side=RIGHT,pady=20)

@@ -1,5 +1,7 @@
 import os
 import sys
+import glob
+import numpy as np
 from io import BytesIO
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -7,12 +9,14 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.common.exceptions import TimeoutException
-from PIL import Image
+from PIL import Image, ImageChops
 from datetime import datetime
 
 radar_site = sys.argv[1] 
 directory = sys.argv[2]
 url = ""
+most_recent = None
+prev_img = None
 
 options = webdriver.ChromeOptions()
 capabilities = DesiredCapabilities.CHROME
@@ -27,6 +31,7 @@ driver.set_window_size(1920,1080)
 driver.implicitly_wait(7.5)
 
 def run_capture(driver, radar_layer, file_name):
+    global most_recent, prev_img
     url = "https://weather.cod.edu/satrad/nexrad/index.php?parms="+radar_site+"-"+radar_layer+"-0-24-100-usa-rad"
     driver.get(url)
 
@@ -62,7 +67,7 @@ def run_capture(driver, radar_layer, file_name):
         os.makedirs(new_date_dir)
 
     image.save(f"{directory}/{dir_day}/{radar_location}-{radar_layer_name}-{time_stamp}.png")
-
+    check_identical_scan(radar_location, radar_layer_name)
 
 def crop_screenshot(driver, element=None, x=619, y=25, width=900, height=900):
     screenshot = driver.get_screenshot_as_png()
@@ -79,6 +84,27 @@ def crop_screenshot(driver, element=None, x=619, y=25, width=900, height=900):
     image = image.crop((x, y, x + width, y + height))
 
     return image
+
+# Deletes identical
+
+def check_identical_scan(loc, lay):
+    global directory
+    pattern = f"{directory}/*/{loc}-{lay}*"
+    files = glob.glob(pattern, recursive=True)
+    sorted_files = sorted(files, key=os.path.getctime, reverse=True)
+
+    current = Image.open(sorted_files[0])
+    previous = Image.open(sorted_files[1])
+    cur_arr = np.array(current)
+    pre_arr = np.array(previous)
+
+    print(sorted_files[0])
+    print(sorted_files[1])
+    diff = np.sum(cur_arr != pre_arr)
+
+    if diff == 0:
+        os.remove(current.filename)
+        print("KEEEEEEEEELLLLLL")
 
 rad_layers = ["N0B", "N0G", "N0C", "DVL"]
 

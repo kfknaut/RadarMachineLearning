@@ -3,9 +3,11 @@ import threading
 import subprocess
 import tkinter as tk
 import configparser
+import glob
 
 from tkinter import *
-from PIL import Image, ImageTk
+from tkinter import ttk
+from PIL import Image, ImageTk, ImageChops
 from datetime import datetime, timedelta
 from tkinter import filedialog
 
@@ -23,17 +25,17 @@ current_city = local_code
 code_list = []
 last_scan_time = "--:--"
 dir_path = "/RadarDump"
-countdown = 330
+delay = 0
+countdown = delay + 30
 updater = None
+
+layer_options = ["Base Reflectivity","Base Velocity","Correlation Coefficient","Vertically Integrated Liquid"]
+layer_options_short = ["baseRef","baseVel","CC","VIL"]
+current_layer = layer_options[0]
 
 # Time slider variables
 start_time = ""
 end_time = ""
-
-recent_base = {}
-recent_velocity = {}
-recent_cc = {}
-recent_vil = {}
 
 # Database management and configuratoin
 if not os.path.exists('config.ini'):
@@ -74,7 +76,7 @@ def run_scrape():
     for thread in threads:
         thread.join()
 
-    update_timer(330)
+    update_timer(delay + 30)
 
 # Individual thread call
 def scan_radar(radars_to_scan):
@@ -90,8 +92,8 @@ def update_timer(time_remaining):
     
     if(countdown <= 0):
         run_scrape()
-        countdown = 330
-        updater = window.after(0, update_timer, 330)
+        countdown = delay + 30
+        updater = window.after(0, update_timer, delay + 30)
 
     else:
         updater = window.after(1000, update_timer, countdown - 1)
@@ -104,8 +106,8 @@ def add_default_loc():
     if "FFC- Peachtree City, GA" not in selected_list.get(0, END):
         selected_list.insert(END, "FFC- Peachtree City, GA")
         code_list.append("FFC")
-    if "test" not in storm_list.get(0, END):
-        storm_list.insert(END, "test")
+    if "Test" not in storm_list.get(0, END):
+        storm_list.insert(END, "Test")
 
 def add_rad_loc():
     global current_city
@@ -144,6 +146,9 @@ def next_city():
         index %= len(code_list)
         current_city = code_list[index]
         current_radar_toggle.config(text=current_city)
+        update_rad(time_slider.get())
+    update_rad(0)
+    
 
 def last_city():
     global current_radar_toggle, current_city, code_list
@@ -153,25 +158,118 @@ def last_city():
         index %= len(code_list)
         current_city = code_list[index]
         current_radar_toggle.config(text=current_city)
+        update_rad(time_slider.get())
+
+# Toggle layers
+def next_layer():
+    global current_layer_toggle, current_layer, layer_options
+    index = layer_options.index(current_layer)
+    index += 1
+    index %= len(layer_options)
+    current_layer = layer_options[index]
+    current_layer_toggle.config(text=current_layer)
+    update_rad(time_slider.get())
+
+def last_layer():
+    global current_layer_toggle, current_layer, layer_options
+    index = layer_options.index(current_layer)
+    index += 1
+    index %= len(layer_options)
+    current_layer = layer_options[index]
+    current_layer_toggle.config(text=current_layer)
+    update_rad(time_slider.get())
 
 # Storm details button
 def storm_details():
+    global last_scan_time, loaded_radar,current_city,current_layer,directory, storm_list
+    selected_storm = storm_list.curselection()
+    if selected_storm:
+        detail_window = tk.Toplevel()
+        detail_window.title("Storm Details")
+        detail_window.geometry("1200x800")
+        detail_window.config(bg='#242424')
+        detail_window.state('zoomed')
 
-    detail_window = tk.Toplevel()
-    detail_window.title("Storm Details")
-    detail_window.geometry("1200x800")
-    detail_window.config(bg='#242424')
-    detail_window.state('zoomed')
+        # Obtain latest radar image
+        dt_pattern = f"{directory}/*/{current_city}-{layer_options_short[0]}*"
+        dt_files = glob.glob(dt_pattern, recursive=True)
+        dt_sorted_files = sorted(dt_files, key=os.path.getctime, reverse=True)
+        rad = dt_sorted_files[0]
+        dt_photo = ImageTk.PhotoImage(file=rad)
 
-    dt_direction = tk.Label(detail_window, text="Direction: ",font=("Arial", 16, "bold"),bg='#242424', fg='white')
-    dt_direction.pack(padx=50,pady=50)
+        #----------------------------------- Left side -----------------------------------
+        detail_left_frame = tk.Frame(detail_window,bg="#242424")
+        detail_left_frame.pack(side=LEFT, padx=10, pady=10)
 
-    def back_button():
-        detail_window.destroy()
-        window.deiconify()
+        #----------------------------------- Radar image -----------------------------------
+        detail_image_label = tk.Label(detail_left_frame, image=dt_photo)
+        detail_image_label.pack()
+        detail_image_label.config(image=dt_photo)
+        detail_image_label.image = dt_photo
+        #----------------------------------- Below Radar Image -----------------------------------
+        detail_base_frame = tk.Frame(detail_left_frame, bg="#242424")
+        detail_base_frame.pack(side=tk.BOTTOM,fill=tk.X)
 
-    back_button = tk.Button(detail_window, text='Back', font=("Arial", 16, "bold"), bg="#87CEF6", command=back_button)
-    back_button.pack(pady=20)
+        last_scan_label = tk.Label(detail_base_frame, text=f"Last scan: {last_scan_time}", fg="white", bg="#242424", font=("Arial", 16, "bold"), anchor="w")
+        last_scan_label.pack(fill=tk.X, side=tk.LEFT)
+
+        #----------------------------------- Right side -----------------------------------
+        detail_right_frame = tk.Frame(detail_window,bg="#242424")
+        detail_right_frame.pack(side=LEFT, padx=10, pady=30, fill=BOTH,expand=TRUE)
+
+        dt_direction = tk.Label(detail_right_frame, text="Direction: ",font=("Arial", 16, "bold"),bg='#242424', fg='white',anchor='w')
+        dt_direction.pack(fill=X, pady=10)
+
+        dt_speed = tk.Label(detail_right_frame, text="Speed: ",font=("Arial", 16, "bold"),bg='#242424', fg='white',anchor='w')
+        dt_speed.pack(fill=X, pady=10)
+
+        dt_life = tk.Label(detail_right_frame, text="Known Storm Lifetime: ",font=("Arial", 16, "bold"),bg='#242424', fg='white',anchor='w')
+        dt_life.pack(fill=X, pady=10)
+
+        dt_max_p = tk.Label(detail_right_frame, text="Max precip: ",font=("Arial", 16, "bold"),bg='#242424', fg='white',anchor='w')
+        dt_max_p.pack(fill=X, pady=10)
+
+        dt_hazards = tk.Label(detail_right_frame, text="Hazards: ",font=("Arial", 16, "bold"),bg='#242424', fg='white',anchor='w')
+        dt_hazards.pack(fill=X, pady=10)
+
+        def back_button():
+            detail_window.destroy()
+            window.deiconify()
+
+        back_button = tk.Button(detail_window, text='Back', font=("Arial", 16, "bold"), bg="#87CEF6", command=back_button,padx=30,pady=10)
+        back_button.pack(pady=40, padx=40, side=BOTTOM)
+
+
+# Radar image management
+def get_layer_imagery(city, layer, offset):
+    global directory, loaded_radar, most_recent, prev_img
+
+    pattern = f"{directory}/*/{city}-{layer}*"
+    files = glob.glob(pattern, recursive=True)
+    sorted_files = sorted(files, key=os.path.getctime, reverse=False)
+
+    if offset <= 0:
+        try:
+            loaded_radar = sorted_files[offset - 1]
+            photo = ImageTk.PhotoImage(file=loaded_radar)
+            image_label.config(image=photo)
+            image_label.image = photo
+            if offset == 0:
+                most_recent = image_label.image = photo
+            elif offset == 1:
+                prev_img = image_label.image = photo
+            print(loaded_radar)
+        except:
+            print("Image not found")
+
+def update_rad(time):
+    global current_city, current_layer, layer_options_short, layer_options
+    lay_list = layer_options
+    index = lay_list.index(current_layer)
+    lay = layer_options_short[index]
+    time = int(time)
+    offset = int (time)
+    get_layer_imagery(current_city, lay, offset)
 
 # Radar Location arrays, storm arrays
 location_options_full = [
@@ -208,7 +306,6 @@ location_options_full = [
     "VNX- Vance Air Force Base, OK", "VTX- Los Angeles, CA", "VWX- Evansville, IN", "YUX- Yuma, AZ"
     ]
 
-layer_options = ["Base Reflectivity","Base Velocity","Correlation Coefficient","Vertically Integrated Liquid"]
 selected_radars = []
 storms = []
 
@@ -236,6 +333,7 @@ base_frame.pack(side=tk.BOTTOM,fill=tk.X)
 last_scan_label = tk.Label(base_frame, text=f"Last scan: {last_scan_time}", fg="white", bg="#242424", font=("Arial", 16, "bold"), anchor="w")
 last_scan_label.pack(fill=tk.X, side=tk.LEFT)
 
+# Toggle city
 next_radar_button = tk.Button(base_frame, text="▶", padx=10, pady=20, anchor="w", font=("Arial", 36, "bold"), bg="#87CEF6", height=3, width=1,command=next_city)
 next_radar_button.pack(padx=20, pady=20, anchor="e", side="right")
 
@@ -244,6 +342,16 @@ current_radar_toggle.pack(side="right")
 
 last_radar_button = tk.Button(base_frame, text="◀", padx=10, pady=20, font=("Arial", 36, "bold"), bg="#87CEF6", height=3, width=1, command=last_city)
 last_radar_button.pack(padx=20, pady=20, anchor="e", side="right")
+
+# Toggle layer
+next_layer_button = tk.Button(base_frame, text="▶", padx=10, pady=20, anchor="w", font=("Arial", 36, "bold"), bg="#87CEF6", height=3, width=1,command=next_layer)
+next_layer_button.pack(padx=20, pady=20, anchor="e", side="right")
+
+current_layer_toggle = tk.Label(base_frame, text=f"{current_layer}", fg="white", bg="#242424", font=("Arial", 16, "bold"), anchor="w")
+current_layer_toggle.pack(side="right")
+
+last_layer_button = tk.Button(base_frame, text="◀", padx=10, pady=20, font=("Arial", 36, "bold"), bg="#87CEF6", height=3, width=1, command=last_layer)
+last_layer_button.pack(padx=20, pady=20, anchor="e", side="right")
 
 #----------------------------------- Right side -----------------------------------
 right_frame = tk.Frame(window,bg="#242424")
@@ -254,32 +362,36 @@ label_text = "Radar"
 label = tk.Label(right_frame,text=label_text, fg="white", bg="#242424", font=("Arial", 16, "bold"),anchor="w")
 label.pack(fill=X)
 
-location_list = tk.Listbox(right_frame, height=10, width=20, bg='#E5E5E5', bd=0, highlightthickness=0)
+r_border = tk.Frame(right_frame, relief="sunken", bg='#E5E5E5')
+r_border.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+location_list = tk.Listbox(r_border, height=7, width=20, bg='#E5E5E5', bd=0, highlightthickness=0,font=("Arial", 12))
 for location in location_options_full:
     location_list.insert(tk.END, location)
 
 location_list.selection_set(location_options_full.index(rad_loc))
 location_list.see(location_options_full.index(rad_loc))
 
-my_scrollbar = tk.Scrollbar(location_list, orient=tk.VERTICAL, command=location_list.yview)
+my_scrollbar = tk.Scrollbar(r_border, orient=tk.VERTICAL, command=location_list.yview)
 location_list.configure(yscrollcommand=my_scrollbar.set)
 my_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 #location_list.select_set(location_options_full.index("FFC- Peachtree City, GA"))
-location_list.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+location_list.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
 #----------------------------------- Selected Radar List -----------------------------------
 label_text = "Selected to be scanned"
 label = tk.Label(right_frame,text=label_text, fg="white", bg="#242424", font=("Arial", 16, "bold"),anchor="w")
 label.pack(fill=X)
 
-selected_list = tk.Listbox(right_frame, height=10, width=20, bg='#E5E5E5', bd=0, highlightthickness=0)
+sr_border = tk.Frame(right_frame, relief="sunken", bg='#E5E5E5')
+sr_border.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+selected_list = tk.Listbox(sr_border, height=7, width=20, bg='#E5E5E5', bd=0, highlightthickness=0,font=("Arial", 12))
 for sel in selected_radars:
     sel.insert(tk.END, location)
 
-my_scrollbar = tk.Scrollbar(selected_list, orient=tk.VERTICAL, command=selected_list.yview)
+my_scrollbar = tk.Scrollbar(sr_border, orient=tk.VERTICAL, command=selected_list.yview)
 selected_list.configure(yscrollcommand=my_scrollbar.set)
 my_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-selected_list.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+selected_list.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
 button_frame = tk.Frame(right_frame, bg="#242424")
 button_frame.pack(side=tk.TOP, fill=tk.X)
@@ -296,14 +408,31 @@ label_text = "Storms"
 label = tk.Label(right_frame,text=label_text, fg="white", bg="#242424", font=("Arial", 16, "bold"),anchor="w")
 label.pack(fill=X)
 
-storm_list = tk.Listbox(right_frame, height=10, width=20, bg='#E5E5E5', bd=0, highlightthickness=0)
+sl_border = tk.Frame(right_frame, relief="sunken", bg='#E5E5E5')
+sl_border.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+storm_list = tk.Listbox(sl_border, height=6, width=20, bg='#E5E5E5', bd=0, highlightthickness=0,font=("Arial", 12))
 for storm in storms:
     storm.insert(tk.END, location)
 
-my_scrollbar = tk.Scrollbar(storm_list, orient=tk.VERTICAL, command=storm_list.yview)
+my_scrollbar = tk.Scrollbar(sl_border, orient=tk.VERTICAL, command=storm_list.yview)
 storm_list.configure(yscrollcommand=my_scrollbar.set)
 my_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-storm_list.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+storm_list.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+# Below listboxes
+delay_label = tk.Label(right_frame, text="Delay", fg="white", bg="#242424",font=("Arial", 16, "bold"), anchor="w")
+delay_label.pack(anchor='w')
+delay_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+selected_option = tk.StringVar(value=delay_options[4])
+
+def update_delay(*args):
+    global delay
+    delay = int(selected_option.get()) * 60
+    print(delay)
+selected_option.trace("w", update_delay)
+
+dropdown = ttk.Combobox(right_frame, textvariable=selected_option, values=delay_options,state="readonly",width=5,background="#242424",font=("Arial", 12, "bold"))
+dropdown.pack(anchor='w', padx=20)
 
 time_remaining_label = tk.Label(right_frame, text="Time until next scan - --:--", fg="white", bg="#242424",font=("Arial", 16, "bold"))
 time_remaining_label.pack()
@@ -314,8 +443,10 @@ details_button.pack(side=RIGHT, padx=30, pady= 20)
 manual_run_button = tk.Button(right_frame, text="Run", command=manual_scrape,padx=20,pady=10,font=("Arial", 16, "bold"),bg="#87CEF6")
 manual_run_button.pack(side=RIGHT, padx=30, pady= 20)
 
-time_slider = tk.Scale(right_frame,from_=-30, to=30, orient=tk.HORIZONTAL, length=600,fg="white", bg="#242424",tickinterval=6,resolution=6, label="Minutes",font=("Arial", 16, "bold"))
+time_slider = tk.Scale(right_frame,from_=-30, to=30, orient=tk.HORIZONTAL, length=600,fg="white", bg="#242424",tickinterval=5,resolution=1, label="Frames",font=("Arial", 12, "bold"),showvalue=False)
 time_slider.pack(side=RIGHT,pady=20)
+time_slider.config(command=update_rad)
 
+update_rad(time_slider.get())
 add_default_loc()
 window.mainloop()

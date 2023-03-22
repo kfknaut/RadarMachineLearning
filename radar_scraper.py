@@ -106,7 +106,7 @@ def check_identical_scan(loc, lay):
 
     if diff == 0:
         os.remove(current.filename)
-        print("KEEEEEEEEELLLLLL")
+        print("Duplicate, deleted most recent scan")
     #else:
         #subprocess.call(["python", "storm_identification_main.py"])
 

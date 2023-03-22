@@ -1,0 +1,128 @@
+import requests
+import re
+from bs4 import BeautifulSoup
+
+# Define the website URL containing the radar images
+url = "https://mesonet.agron.iastate.edu/cow/?syear=2023&smonth=1&sday=1&shour=12&eyear=2015&emonth=3&eday=15&ehour=12&wfo=FFC&hail=0.75&lsrbuffer=15&warnbuffer=0.01&wind=58&wtype%5B%5D=TO&wtype%5B%5D=SV&wtype%5B%5D=FF&ltype%5B%5D=T&ltype%5B%5D=D&ltype%5B%5D=H&windhailtag=Y"
+
+# Send a GET request to the website and parse the HTML content
+response = requests.get(url)
+soup = BeautifulSoup(response.text, 'html.parser')
+
+radar_links = []
+table_rows = soup.find_all('tr')
+current_storm = 0
+prev_storm = 0
+save_string = ""
+storm_type = []
+all_storms = []
+# ------------------------------------- Creates text for image samples and assists sorting -----------------------------------------
+def compile_storm(storm_type):
+    if storm_type == "Tornado":
+        #check if warning or actual
+        print("Tornado")
+
+
+def create_stats(array, link, type_data):
+    global save_string, current_storm, storm_type, prev_storm
+    #print(array)
+    header = array[0]
+    if header != '':
+        #compile_storm(type_data)
+        print (f"-------------------------{current_storm}---------------------------")
+        print(link)
+        print(type_data)
+        pattern_wind_hail = r".*H:\s*(\d+(?:\.\d+)?)\D+W:\s*(\d+).*"
+        pattern_wind = r".*W:\s*(\d+).*"
+        pattern_tor = r"^TO\."
+
+        match_wh = re.match(pattern_wind_hail, header)
+        match_w = re.match(pattern_wind, header)
+        match_tor = re.match(pattern_tor, header)
+
+        if match_wh:
+            storm_type.clear()
+            if "Wind and Hail" not in storm_type:
+                storm_type.append("Wind and Hail")
+            hail_val = match_wh.group(1)
+            wind_val = match_wh.group(2)
+
+            save_string = f"Wind-{wind_val}_Hail-{hail_val}"
+            print(save_string)
+
+        elif match_w:
+            storm_type.clear()
+            if "Wind" not in storm_type:
+                storm_type.append("Wind")
+            wind_val = match_w.group(1)
+
+            save_string = f"Wind-{wind_val}"
+            print(save_string)
+        
+        elif match_tor:
+            storm_type.clear()
+            if "Tornado" not in storm_type:
+                storm_type.append("Tornado")
+            print("Tornado") 
+            
+        current_storm += 1
+    
+    else:
+        if len(array) > 7 and array[2] != "NA":
+            if "Tornado" in array[5] or "Hail" in array[5] or "Tstm Wnd Dmg" in array[5] or "Wind Gust" in array[5]:
+                s_type = array[5]
+                pattern_tor_str = r"EF0|EF1|EF2|EF3|EF4|EF5|EF-0|EF-1|EF-2|EF-3|EF-4|EF-5|EF 0|EF 1|EF 2|EF 3|EF 4|EF 5"
+                tor_int = re.search(pattern_tor_str, array[7])
+                if tor_int:
+                    t_match = tor_int.group(0)
+                    print(f"Verified {t_match} Tornado")
+                elif "Tornado" in array[5]:
+                    print(f"Verified Tornado Damage")
+                elif "Hail" in array[5]:
+                    print(f"Verified Hail Damage")
+                elif "Wind Gust" in array[5] or "Tstm Wnd Dmg" in array[5]:
+                    print(f"Verified Wind Damage")
+# ------------------------------------- End def -------------------------------------
+
+for link in soup.find_all('a'):
+    if link.string and "SV." in link.string or link.string and "TO." in link.string:
+        radar_links.append(link.get('href'))
+
+for row in table_rows:
+    passed_link = ""
+    passed_type = ""
+    td = row.find('td')
+    if td:
+        link = td.find('a')
+        if link:
+            passed_link = f"https://mesonet.agron.iastate.edu/{link['href']}"
+            passed_type = td.get_text()
+
+    td_tags = row.find_all('td')
+    td_text = []
+    for td in td_tags:
+        if td is not None:
+            td_text.append(td.text)
+    #print(td_text)
+    if len(td_text) > 0:
+        if passed_type[:2] == "SV" or passed_type[:2] == "TO":
+            create_stats(td_text,passed_link, passed_type)
+
+#for radar_link in radar_links:
+    # Send a GET request to the radar image link and parse the HTML content
+    #response = requests.get(radar_link)
+    #soup = BeautifulSoup(response.text, 'html.parser')
+
+    # Extract the URL of the "radar.php" file
+    #radar_php_link = None
+    #for link in soup.find_all('a'):
+    #    if "radar.php" in link.get('href'):
+    #        radar_php_link = link.get('href')
+    #       break
+
+    # Download the "radar.php" file
+    #if radar_php_link:
+        #response = requests.get(radar_php_link)
+        #with open(radar_php_link.split("/")[-1], "wb") as f:
+            #f.write(response.content)
+

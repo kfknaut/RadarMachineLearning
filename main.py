@@ -219,7 +219,7 @@ def storm_details():
         detail_base_frame = tk.Frame(detail_left_frame, bg="#242424")
         detail_base_frame.pack(side=tk.BOTTOM,fill=tk.X)
 
-        last_scan_label = tk.Label(detail_base_frame, text=f"Last scan: {last_scan_time}", fg="white", bg="#242424", font=("Arial", 16, "bold"), anchor="w")
+        last_scan_label = tk.Label(detail_base_frame, text=f"Last scan: {last_scan_time}", fg="white", bg="#242424", font=("Arial", 16, "bold"), anchor="w",pady=40)
         last_scan_label.pack(fill=tk.X, side=tk.LEFT)
 
         #----------------------------------- Right side -----------------------------------
@@ -406,10 +406,10 @@ button_frame = tk.Frame(right_frame, bg="#242424")
 button_frame.pack(side=tk.TOP, fill=tk.X)
 
 remove_button = tk.Button(button_frame, text="Remove",padx=20,pady=10,anchor="w",font=("Arial", 16, "bold"),bg="#87CEF6",command=remove_rad_loc)
-remove_button.pack(padx=30, pady= 20, anchor="e", side="right")
+remove_button.pack(padx=20, pady= 20, anchor="e", side="right")
 
 add_button = tk.Button(button_frame, text="Add",padx=20,pady=10,font=("Arial", 16, "bold"),bg="#87CEF6",command=add_rad_loc)
-add_button.pack(padx=30, pady= 20, anchor="e", side= "right")
+add_button.pack(padx=20, pady= 20, anchor="e", side= "right")
 
 
 #----------------------------------- Storms -----------------------------------
@@ -456,7 +456,7 @@ file_select_button = tk.Button(right_frame, text="📁",padx=10,pady=10,font=("A
 file_select_button.pack(side=RIGHT, padx=20, pady= 20)
 
 time_slider = tk.Scale(right_frame,from_=-30, to=30, orient=tk.HORIZONTAL, length=600,fg="white", bg="#242424",tickinterval=5,resolution=1, label="Frames",font=("Arial", 12, "bold"),showvalue=False)
-time_slider.pack(side=RIGHT,pady=20)
+time_slider.pack(side=RIGHT,pady=20,padx=20)
 time_slider.config(command=update_rad)
 
 update_rad(time_slider.get())

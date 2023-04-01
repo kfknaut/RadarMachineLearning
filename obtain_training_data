@@ -1,13 +1,23 @@
 import requests
 import re
+import time
+import os
+from PIL import Image
 from bs4 import BeautifulSoup
 
 # Define the website URL containing the radar images
-url = "https://mesonet.agron.iastate.edu/cow/?syear=2023&smonth=1&sday=1&shour=12&eyear=2015&emonth=3&eday=15&ehour=12&wfo=FFC&hail=0.75&lsrbuffer=15&warnbuffer=0.01&wind=58&wtype%5B%5D=TO&wtype%5B%5D=SV&wtype%5B%5D=FF&ltype%5B%5D=T&ltype%5B%5D=D&ltype%5B%5D=H&windhailtag=Y"
+removed = 'ABQ','ABR','ALY','AKQ','AMA', 'APX','ARX','BGM', 'BIS', 'BMX', 'BOI', 'BOU', 'BOX',
+rad_sites = ['BRO', 'BUF', 'BTV', 'CAE', 'CAR', 'CHS', 'CLE', 'CRP', 'CTP', 'CYS', 'DDC', 'DLH', 'DMX', 'DTX', 'DVN', 'EAX', 'EKA', 'EPZ', 'EWX', 'FFC', 'FGF', 'FGZ', 'FSD', 'FWD', 'GGW', 'GID', 'GJT', 'GLD', 'GRB', 'GRR', 'GSP', 'GUM', 'GYX', 'HNX', 'HUN', 'HGX', 'ICT', 'ILM', 'ILN', 'ILX', 'IND', 'IWX', 'JAN', 'JAX', 'JKL', 'JSJ', 'KEY', 'LBF', 'LCH', 'LIX', 'LKX', 'LKN', 'LIX', 'LMK', 'LUB', 'LWX', 'LZK', 'MAF', 'MEG', 'MHX', 'MKX', 'MLB', 'MOB', 'MPX', 'MQT', 'MTR', 'OHX', 'OAX', 'OUN', 'PDT', 'PBZ', 'PQR', 'PUB', 'RAH', 'REV', 'RIW', 'RLX', 'RNK', 'SEW', 'SGF', 'SGX', 'SJT', 'SJU', 'SLC', 'STO', 'TBW', 'TAE', 'TBW', 'TFX', 'TOP', 'TSA', 'TWC', 'UNR', 'VEF']
+l_code = rad_sites[0]
+url = f"https://mesonet.agron.iastate.edu/cow/?syear=2023&smonth=1&sday=1&shour=12&eyear=2015&emonth=3&eday=15&ehour=12&wfo={l_code}&hail=0.75&lsrbuffer=15&warnbuffer=0.01&wind=58&wtype%5B%5D=TO&wtype%5B%5D=SV&ltype%5B%5D=T&ltype%5B%5D=D&ltype%5B%5D=H&ltype%5B%5D=G&windhailtag=Y"
 
 # Send a GET request to the website and parse the HTML content
 response = requests.get(url)
 soup = BeautifulSoup(response.text, 'html.parser')
+
+base_path = r"E:\TrainingData"
+save_path = ''
+delay = 1
 
 radar_links = []
 table_rows = soup.find_all('tr')
@@ -15,23 +25,186 @@ current_storm = 0
 prev_storm = 0
 save_string = ""
 storm_type = []
+storm_events = []
 all_storms = []
+strongest_t = ""
+t_match = ""
+strongest_w = 0
+strongest_h = 0
+final_array = []
+uk_t = 0
+uk_h = 0
+uk_w = 0
+header = ''
+storm_report_count = 0
+save_link = ''
+outpath = ''
 # ------------------------------------- Creates text for image samples and assists sorting -----------------------------------------
-def compile_storm(storm_type):
-    if storm_type == "Tornado":
-        #check if warning or actual
-        print("Tornado")
+def save_image(path):
+    global save_link,save_string,outpath,delay
+    response = requests.get(save_link)
 
+    if response.status_code == 200:
+
+        filename = f"{outpath}.png"
+        f_path = os.path.join(path, filename)
+
+        with open(os.path.join(f_path), 'wb') as f:
+            f.write(response.content)
+            print(f"Saved to {path}")
+    time.sleep(delay)
+
+
+def compile_storm(storm_t, link):
+    global save_link
+    img_code = link.split('#')[-1].split('/')[0]
+    frm_code = img_code.replace('-', '.')
+    print(storm_t)
+    save_link = f"https://mesonet.agron.iastate.edu/GIS/radmap.php?layers[]=nexrad&layers[]=sbw&layers[]=sbwh&layers[]=uscounties&vtec={frm_code}"
+    print(f"https://mesonet.agron.iastate.edu/GIS/radmap.php?layers[]=nexrad&layers[]=sbw&layers[]=sbwh&layers[]=uscounties&vtec={frm_code}")
+
+def sort_data(events, fin):
+    global save_string, strongest_h,strongest_w,strongest_t, outpath
+    comb = events + fin
+    print(comb)
+    path_maker = ""
+    routed = False
+
+    # create a new list to prevent infinite loop
+    new_fin = fin.copy()
+    if any(i.startswith("EF") for i in new_fin):
+        new_fin.append("Tornado")
+
+    if strongest_t == "":
+        strongest_t = "UKN"
+    if strongest_w == "":
+        strongest_w = "UKN"
+    if strongest_h == "":
+        strongest_h = "UKN"
+
+    if ("Tornado" in comb or "Tornado" in new_fin) and not routed:
+        if "Wind" in comb or "Wind" in new_fin:
+            if "Hail" in comb or "Hail" in new_fin:
+                routed = True
+                path_maker = "Verified\TornadoAndHailAndWind"
+                save_string = f"Tornado_EF_{strongest_t}_Wind_{strongest_w}_mph_Hail_{strongest_h}_in"
+            else:
+                routed = True
+                path_maker = "Verified\TornadoAndWind"
+                save_string = f"Tornado_EF_{strongest_t}_Wind_{strongest_w}_mph"
+        else:
+            routed = True
+            path_maker = "Verified\Tornado"
+            save_string = f"Tornado_EF_{strongest_t}"
+
+    if ("Tstm Wnd Dmg" in comb or "Wind Gust" in comb or "Tstm Wnd Dmg" in new_fin or "Wind Gust" in new_fin) and not routed:
+        if "Hail" in comb or "Hail" in new_fin:
+            routed = True
+            path_maker = "Verified\HailAndWind"
+            save_string = f"Wind_{strongest_w}_mph_Hail_{strongest_h}_in"
+        else:
+            routed = True
+            path_maker = "Verified\Wind"
+            save_string = f"Wind_{strongest_w}_mph"
+
+    if ("Hail" in comb or "Hail" in new_fin) and not routed:
+        if "Tstm Wnd Dmg" in comb or "Wind Gust" in comb or "Tstm Wnd Dmg" in new_fin or "Wind Gust" in new_fin:
+            routed = True
+            path_maker = "Verified\HailAndWind"
+            save_string = f"Wind_{strongest_w}_mph_Hail_{strongest_h}_in"
+        else:
+            routed = True
+            path_maker = "Verified\Hail"
+            save_string = f"Hail_{strongest_h}_in"
+
+    if all(x == "UnverifiedSTW" for x in comb) and all(x == "UnverifiedSTW" for x in new_fin):
+        path_maker = "Unverified\Wind"
+
+    if all(x == "UnverifiedTW" for x in events) and all(x == "UnverifiedTW" for x in new_fin):
+        path_maker = "Unverified\Tornado"
+
+    save_path = f"{base_path}\{path_maker}"
+    sstr = save_string.replace('.', '_')
+    sl = save_link[-25:]
+    slk = sl.replace('.', '-')
+    if sstr == "" or storm_report_count == 0:
+        sstr = "Unverified"
+    print(f"{sstr}_{slk}")
+    outpath = f"{sstr}_{slk}"
+    print(f"Save Path: {save_path}")
+    if save_link != "":
+            save_image(save_path)
+
+def set_final_array():
+    global strongest_t, strongest_h, strongest_w, storm_events, storm_type, final_array
+    if strongest_t:
+        #print(f"Verified {strongest_t} Tornado")
+        final_array.append(f"EF{strongest_t[-1]}")
+    elif uk_t:
+        final_array.append("Tornado")
+    elif "Tornado" in storm_events:
+        #print("Unverified Tornado Warning")
+        final_array.append("UTW")
+
+    if strongest_h:
+        #print(f"Largest hail: {strongest_h} in")
+        final_array.append(f"Hail{strongest_h}")
+    elif uk_h:
+        final_array.append("Hail")
+    elif "Hail" in storm_events or "Hail" in storm_type:
+        #print("Unverified Severe Thunderstorm Warning Hail")
+        final_array.append("USTH")
+
+    if strongest_w:
+        #print(f"Max Wind: {strongest_w} mph")
+        final_array.append(f"Wind{strongest_w}")
+    elif uk_w == 1:
+        final_array.append("Wind")
+    elif "Wind Gust" in storm_events or "Tstm Wnd Dmg" in storm_events or "Wind Gust" in storm_type or "Tstm Wnd Dmg" in storm_type:
+        #print("Unverified Severe Thunderstorm Warning Wind")
+        final_array.append("USTW")
 
 def create_stats(array, link, type_data):
-    global save_string, current_storm, storm_type, prev_storm
-    #print(array)
+    global l_code, header, save_string, current_storm, storm_type, prev_storm, storm_events, strongest_t, t_match, strongest_h, strongest_w, uk_h, uk_t, uk_w, storm_report_count,save_link
+    print(f"Running radar site {l_code}")
     header = array[0]
+    # -------------------------------------------- If is a TO or SV slot --------------------------------------------------
     if header != '':
-        #compile_storm(type_data)
+        #initially sets every storm as unverified
+        if storm_report_count > 0:
+            set_final_array()
+            #sort_data(storm_events, final_array)
+            print(storm_report_count)
+        
+
+        if current_storm > 0:
+            sort_data(storm_events, final_array)
+            t_match = ""
+            strongest_t = ""
+            strongest_w = 0
+            strongest_h = 0
+            storm_events.clear()
+            final_array.clear()
+            storm_type.clear()
+            uk_t = 0
+            uk_h = 0
+            uk_w = 0
+        
+        current_storm += 1
         print (f"-------------------------{current_storm}---------------------------")
-        print(link)
-        print(type_data)
+        storm_type.clear()
+
+        if header.startswith("TO"):
+            storm_events.append("UnverifiedTW")
+            final_array.append("UnverifiedTW")
+        if header.startswith("SV"):
+            storm_events.append("UnverifiedSTW")
+            final_array.append("UnverifiedSTW")
+
+        #Print current storm
+        #get the storm label such as SV.3
+        #Print the link and savelocation with sort_data()
+
         pattern_wind_hail = r".*H:\s*(\d+(?:\.\d+)?)\D+W:\s*(\d+).*"
         pattern_wind = r".*W:\s*(\d+).*"
         pattern_tor = r"^TO\."
@@ -41,88 +214,108 @@ def create_stats(array, link, type_data):
         match_tor = re.match(pattern_tor, header)
 
         if match_wh:
-            storm_type.clear()
             if "Wind and Hail" not in storm_type:
                 storm_type.append("Wind and Hail")
             hail_val = match_wh.group(1)
             wind_val = match_wh.group(2)
 
-            save_string = f"Wind-{wind_val}_Hail-{hail_val}"
-            print(save_string)
+            #save_string = f"Wind-{wind_val}_Hail-{hail_val}"
+            #print(save_string)
 
         elif match_w:
-            storm_type.clear()
             if "Wind" not in storm_type:
                 storm_type.append("Wind")
             wind_val = match_w.group(1)
 
-            save_string = f"Wind-{wind_val}"
-            print(save_string)
+            #save_string = f"Wind-{wind_val}"
+            #print(save_string)
         
         elif match_tor:
-            storm_type.clear()
             if "Tornado" not in storm_type:
                 storm_type.append("Tornado")
-            print("Tornado") 
-            
-        current_storm += 1
-    
+            #print("Tornado") 
+
+        storm_report_count = 0
+
+        if type_data and link:
+            compile_storm(type_data, link)
+        
+    # -------------------------------------------- If a storm report underneath --------------------------------------------------
     else:
         if len(array) > 7 and array[2] != "NA":
+            if "UnverifiedTW" in storm_events:
+                storm_events.remove("UnverifiedTW")
+            if "UnverifiedSTW" in storm_events:
+                storm_events.remove("UnverifiedSTW")
+            storm_report_count += 1
             if "Tornado" in array[5] or "Hail" in array[5] or "Tstm Wnd Dmg" in array[5] or "Wind Gust" in array[5]:
                 s_type = array[5]
                 pattern_tor_str = r"EF0|EF1|EF2|EF3|EF4|EF5|EF-0|EF-1|EF-2|EF-3|EF-4|EF-5|EF 0|EF 1|EF 2|EF 3|EF 4|EF 5"
                 tor_int = re.search(pattern_tor_str, array[7])
                 if tor_int:
                     t_match = tor_int.group(0)
-                    print(f"Verified {t_match} Tornado")
-                elif "Tornado" in array[5]:
-                    print(f"Verified Tornado Damage")
+                    if t_match[-1] > strongest_t or strongest_t == "":
+                        #save_string = f"Tornado_EF_{t_match[-1]}"
+                        strongest_t = t_match[-1]
+                elif "Tornado" in array[5] and "Tornado" not in storm_events:
+                    storm_events.append("Tornado")
+                    #print(f"Verified Tornado Damage")
                 elif "Hail" in array[5]:
-                    print(f"Verified Hail Damage")
-                elif "Wind Gust" in array[5] or "Tstm Wnd Dmg" in array[5]:
-                    print(f"Verified Wind Damage")
+                    if uk_h  == 0 and strongest_h == 0:
+                        uk_h = 1
+                    if strongest_h == 0:
+                        strongest_h = array[6]
+                    if array[6] > strongest_h:
+                        strongest_h = array[6]
+                    if "Hail" not in storm_events:
+                        storm_events.append("Hail")
+                    #print(f"Verified Hail Damage")
+                elif "Tstm Wnd Dmg" in array[5]:
+                    if uk_w == 0 and strongest_w == 0:
+                        uk_w = 1
+                    if strongest_w == 0:
+                        strongest_w = array[6]
+                    if array[6] > strongest_w:
+                        strongest_w = array[6]
+                    if "Tstm Wnd Dmg" not in storm_events:
+                        storm_events.append("Tstm Wnd Dmg")
+                    #print(f"Verified Wind Damage")
+                elif "Wind Gust" in array[5]:
+                    if strongest_w != 0 or int(array[6]) > strongest_w:
+                        strongest_w = array[6]
+                    if "Wind Gust" not in storm_events:
+                        storm_events.append("Tstm Wnd Dmg")
+                    #print(f"Verified Wind Damage")
 # ------------------------------------- End def -------------------------------------
+for i in range(len(rad_sites)):
+    for link in soup.find_all('a'):
+        if link.string and "SV." in link.string or link.string and "TO." in link.string:
+            radar_links.append(link.get('href'))
 
-for link in soup.find_all('a'):
-    if link.string and "SV." in link.string or link.string and "TO." in link.string:
-        radar_links.append(link.get('href'))
+    for row in table_rows:
+        passed_link = ""
+        passed_type = ""
+        td = row.find('td')
+        if td:
+            link = td.find('a')
+            if link:
+                passed_link = f"https://mesonet.agron.iastate.edu/{link['href']}"
+                passed_type = td.get_text()
 
-for row in table_rows:
-    passed_link = ""
-    passed_type = ""
-    td = row.find('td')
-    if td:
-        link = td.find('a')
-        if link:
-            passed_link = f"https://mesonet.agron.iastate.edu/{link['href']}"
-            passed_type = td.get_text()
-
-    td_tags = row.find_all('td')
-    td_text = []
-    for td in td_tags:
-        if td is not None:
-            td_text.append(td.text)
-    #print(td_text)
-    if len(td_text) > 0:
-        if passed_type[:2] == "SV" or passed_type[:2] == "TO":
+        td_tags = row.find_all('td')
+        td_text = []
+        for td in td_tags:
+            if td is not None:
+                td_text.append(td.text)
+        #print(td_text)
+        if len(td_text) == 11 or len(td_text) == 8:
             create_stats(td_text,passed_link, passed_type)
-
-#for radar_link in radar_links:
-    # Send a GET request to the radar image link and parse the HTML content
-    #response = requests.get(radar_link)
-    #soup = BeautifulSoup(response.text, 'html.parser')
-
-    # Extract the URL of the "radar.php" file
-    #radar_php_link = None
-    #for link in soup.find_all('a'):
-    #    if "radar.php" in link.get('href'):
-    #        radar_php_link = link.get('href')
-    #       break
-
-    # Download the "radar.php" file
-    #if radar_php_link:
-        #response = requests.get(radar_php_link)
-        #with open(radar_php_link.split("/")[-1], "wb") as f:
-            #f.write(response.content)
-
+    sort_data(storm_events, final_array)
+    i += 1
+    l_code = rad_sites[i]
+    url = f"https://mesonet.agron.iastate.edu/cow/?syear=2023&smonth=1&sday=1&shour=12&eyear=2015&emonth=3&eday=15&ehour=12&wfo={l_code}&hail=0.75&lsrbuffer=15&warnbuffer=0.01&wind=58&wtype%5B%5D=TO&wtype%5B%5D=SV&ltype%5B%5D=T&ltype%5B%5D=D&ltype%5B%5D=H&ltype%5B%5D=G&windhailtag=Y"
+    print(f"current site is: {l_code}")
+    print(f"current url is: {url}")
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    table_rows = soup.find_all('tr')

@@ -47,8 +47,8 @@ delay = 300
 countdown = delay + 30
 updater = None
 
-layer_options = ["Base Reflectivity","Base Velocity","Correlation Coefficient","Vertically Integrated Liquid"]
-layer_options_short = ["baseRef","baseVel","CC","VIL"]
+layer_options = ["Base Reflectivity","Base Velocity","Correlation Coefficient","Vertically Integrated Liquid", "Echo Tops"]
+layer_options_short = ["baseRef","baseVel","CC","VIL","TstmHeight"]
 current_layer = layer_options[0]
 
 # Time slider variables
@@ -182,7 +182,7 @@ def next_layer():
 def last_layer():
     global current_layer_toggle, current_layer, layer_options
     index = layer_options.index(current_layer)
-    index += 1
+    index -= 1
     index %= len(layer_options)
     current_layer = layer_options[index]
     current_layer_toggle.config(text=current_layer)
@@ -269,7 +269,7 @@ def get_layer_imagery(city, layer, offset):
                 prev_img = image_label.image = photo
             print(loaded_radar)
         except:
-            print("Image not found")
+            print(f"Image not found, looking for {pattern}")
 
 def update_rad(time):
     global current_city, current_layer, layer_options_short, layer_options

@@ -58,6 +58,8 @@ def run_capture(driver, radar_layer, file_name):
         radar_layer_name = "CC"
     elif (radar_layer == "DVL"):
         radar_layer_name = "VIL"
+    elif (radar_layer == "EET"):
+        radar_layer_name = "TstmHeight"
 
     dir_day = datetime.today().strftime("%m_%d_%Y")
 
@@ -110,7 +112,7 @@ def check_identical_scan(loc, lay):
     #else:
         #subprocess.call(["python", "storm_identification_main.py"])
 
-rad_layers = ["N0B", "N0G", "N0C", "DVL"]
+rad_layers = ["N0B", "N0G", "N0C", "DVL", "EET"]
 
 for layer in rad_layers:
     run_capture(driver, layer, "radar-image")

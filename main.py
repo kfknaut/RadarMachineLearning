@@ -1,9 +1,6 @@
-import os
-import threading
-import subprocess
+import os, threading, subprocess, configparser, glob, cv2
+import numpy as np
 import tkinter as tk
-import configparser
-import glob
 
 from tkinter import *
 from tkinter import ttk
@@ -14,6 +11,14 @@ from tkinter import filedialog
 config = configparser.ConfigParser()
 section = 'Directories'
 key = 'RadarDump'
+
+def select_file_location():
+    global directory, config, key,section
+    directory = filedialog.askdirectory()
+    if directory:
+        config.set(section, key, directory)
+        with open('config.ini', 'w') as f:
+            config.write(f)
 
 # Config and database
 directory = r"E:\RadarDump"
@@ -78,14 +83,8 @@ def run_scrape():
         thread.join()
 
     update_timer(delay + 30)
-
-def select_file_location():
-    global directory, config, key,section
-    directory = filedialog.askdirectory()
-    if directory:
-        config.set(section, key, directory)
-        with open('config.ini', 'w') as f:
-            config.write(f)
+    update_rad(time_slider.get())
+    update_storm_list()
 
 # Individual thread call
 def scan_radar(radars_to_scan):
@@ -115,8 +114,8 @@ def add_default_loc():
     if "FFC- Peachtree City, GA" not in selected_list.get(0, END):
         selected_list.insert(END, "FFC- Peachtree City, GA")
         code_list.append("FFC")
-    if "Test" not in storm_list.get(0, END):
-        storm_list.insert(END, "Test")
+    #if "Test" not in storm_list.get(0, END):
+        #storm_list.insert(END, "Test")
 
 def add_rad_loc():
     global current_city
@@ -157,6 +156,7 @@ def next_city():
         current_radar_toggle.config(text=current_city)
         update_rad(time_slider.get())
     update_rad(0)
+    update_storm_list()
     
 
 def last_city():
@@ -168,6 +168,7 @@ def last_city():
         current_city = code_list[index]
         current_radar_toggle.config(text=current_city)
         update_rad(time_slider.get())
+        update_storm_list()
 
 # Toggle layers
 def next_layer():
@@ -189,22 +190,99 @@ def last_layer():
     update_rad(time_slider.get())
 
 # Storm details button
+def get_highest_qpf(storm):
+    qpf_scale = [(2, 98, 30), (2, 98, 30), (2, 98, 30), (2, 98, 30), (2, 98, 30), (2, 98, 30), (2, 98, 30), (2, 98, 30), (3, 101, 31), (3, 101, 31), (7, 108, 32), 
+                 (7, 108, 32), (7, 108, 32), (7, 108, 32), (7, 108, 32), (7, 108, 32), (9, 111, 33), (9, 111, 33), (12, 117, 35), (12, 117, 35), (12, 117, 35), 
+                 (12, 117, 35), (12, 117, 35), (12, 117, 35), (14, 121, 36), (14, 121, 36), (17, 127, 38), (17, 127, 38), (17, 127, 38), (17, 127, 38), (17, 127, 38), 
+                 (17, 127, 38), (19, 130, 38), (19, 130, 38), (19, 130, 38), (20, 133, 39), (20, 133, 39), (26, 143, 42), (26, 143, 42), (26, 143, 42), (26, 143, 42), 
+                 (26, 143, 42), (26, 143, 42), (26, 143, 42), (26, 143, 42), (27, 146, 43), (27, 146, 43), (27, 146, 43), (31, 152, 44), (31, 152, 44), (31, 152, 44), 
+                 (31, 152, 44), (31, 152, 44), (32, 156, 45), (32, 156, 45), (32, 156, 45), (36, 162, 47), (36, 162, 47), (36, 162, 47), (36, 162, 47), (36, 162, 47), 
+                 (37, 165, 48), (37, 165, 48), (37, 165, 48), (41, 172, 49), (41, 172, 49), (41, 172, 49), (41, 172, 49), (41, 172, 49), (43, 175, 50), (43, 175, 50), 
+                 (43, 175, 50), (44, 178, 51), (44, 178, 51), (44, 178, 51), (49, 188, 54), (49, 188, 54), (49, 188, 54), (49, 188, 54), (49, 188, 54), (49, 188, 54), 
+                 (49, 188, 54), (49, 188, 54), (51, 191, 55), (51, 191, 55), (54, 197, 56), (54, 197, 56), (54, 197, 56), (54, 197, 56), (54, 197, 56), (54, 197, 56), 
+                 (56, 200, 57), (56, 200, 57), (60, 207, 59), (60, 207, 59), (60, 207, 59), (60, 207, 59), (60, 207, 59), (60, 207, 59), (61, 210, 60), (61, 210, 60), 
+                 (65, 216, 61), (65, 216, 61), (65, 216, 61), (65, 216, 61), (65, 216, 61), (65, 216, 61), (66, 219, 62), (66, 219, 62), (66, 219, 62), (68, 223, 63), 
+                 (68, 223, 63), (73, 232, 66), (73, 232, 66), (73, 232, 66), (73, 232, 66), (73, 232, 66), (73, 232, 66), (73, 232, 66), (73, 232, 66), (75, 235, 66), 
+                 (75, 235, 66), (75, 235, 66), (78, 242, 68), (78, 242, 68), (78, 242, 68), (78, 242, 68), (78, 242, 68), (80, 245, 69), (80, 245, 69), (80, 245, 69), 
+                 (255, 251, 39), (255, 251, 39), (255, 251, 39), (255, 251, 39), (255, 251, 39), (255, 247, 39), (255, 247, 39), (255, 247, 39), (255, 242, 38), 
+                 (255, 242, 38), (255, 242, 38), (255, 238, 37), (255, 238, 37), (255, 234, 37), (255, 234, 37), (255, 234, 37), (255, 230, 36), (255, 230, 36), 
+                 (255, 230, 36), (255, 217, 34), (255, 217, 34), (255, 217, 34), (255, 217, 34), (255, 217, 34), (255, 217, 34), (255, 217, 34), (255, 217, 34), 
+                 (255, 213, 33), (255, 213, 33), (255, 209, 33), (255, 209, 33), (255, 209, 33), (255, 205, 32), (255, 205, 32), (255, 205, 32), (255, 201, 31), 
+                 (255, 201, 31), (255, 196, 31), (255, 196, 31), (255, 196, 31), (255, 192, 30), (255, 192, 30), (255, 192, 30), (255, 188, 30), (255, 188, 30), 
+                 (255, 184, 29), (255, 184, 29), (255, 184, 29), (255, 180, 28), (255, 180, 28), (255, 180, 28), (255, 176, 28), (255, 176, 28), (255, 176, 28), 
+                 (255, 171, 27), (255, 171, 27), (255, 167, 26), (255, 167, 26), (255, 167, 26), (255, 155, 24), (255, 155, 24), (255, 155, 24), (255, 155, 24), 
+                 (255, 155, 24), (255, 155, 24), (255, 155, 24), (255, 155, 24), (255, 150, 24), (255, 150, 24), (255, 150, 24), (255, 146, 23), (255, 146, 23), 
+                 (255, 142, 22), (255, 142, 22), (255, 142, 22), (255, 138, 22), (255, 138, 22), (255, 138, 22), (255, 130, 20), (255, 130, 20), (255, 130, 20), 
+                 (255, 130, 20), (255, 130, 20), (255, 125, 20), (255, 125, 20), (255, 125, 20), (255, 121, 19), (255, 121, 19), (255, 117, 18), (255, 117, 18), 
+                 (255, 117, 18), (255, 113, 18), (255, 113, 18), (255, 113, 18), (255, 109, 17), (255, 109, 17), (255, 96, 15), (255, 96, 15), (255, 96, 15), (255, 96, 15), 
+                 (255, 96, 15), (255, 96, 15), (255, 96, 15), (255, 96, 15), (255, 92, 14), (255, 92, 14), (255, 92, 14), (255, 88, 14), (255, 88, 14), (255, 88, 14), 
+                 (255, 84, 13), (255, 84, 13), (255, 79, 12), (255, 79, 12), (255, 79, 12), (255, 71, 11), (255, 71, 11), (255, 71, 11), (255, 71, 11), (255, 71, 11), 
+                 (255, 67, 10), (255, 67, 10), (255, 67, 10), (255, 63, 10), (255, 63, 10), (255, 63, 10), (255, 59, 9), (255, 59, 9), (255, 59, 9), (255, 54, 9), 
+                 (255, 54, 9), (255, 50, 8), (255, 50, 8), (255, 50, 8), (255, 38, 6), (255, 38, 6), (255, 38, 6), (255, 38, 6), (255, 38, 6), (255, 38, 6), (255, 38, 6), 
+                 (255, 38, 6), (255, 33, 5), (255, 33, 5), (255, 33, 5), (255, 29, 5), (255, 29, 5), (255, 25, 4), (255, 25, 4), (255, 25, 4), (255, 21, 3), (255, 21, 3), 
+                 (255, 21, 3), (255, 17, 3), (255, 17, 3), (255, 13, 2), (255, 13, 2), (255, 13, 2), (255, 8, 1), (255, 8, 1), (255, 8, 1), (255, 4, 1), (255, 4, 1), 
+                 (255, 0, 0), (255, 0, 0), (255, 0, 0), (240, 0, 0), (240, 0, 0), (240, 0, 0), (235, 0, 0), (235, 0, 0), (224, 0, 0), (224, 0, 0), (224, 0, 0), (224, 0, 0), 
+                 (224, 0, 0), (224, 0, 0), (219, 0, 0), (219, 0, 0), (214, 0, 0), (214, 0, 0), (214, 0, 0), (209, 0, 0), (209, 0, 0), (209, 0, 0), (204, 0, 0), (204, 0, 0), 
+                 (198, 0, 0), (198, 0, 0), (198, 0, 0), (193, 0, 0), (193, 0, 0), (193, 0, 0), (188, 0, 0), (188, 0, 0), (230, 0, 200), (230, 0, 200), (230, 0, 200), 
+                 (231, 7, 203), (231, 7, 203), (231, 7, 203), (232, 13, 205), (232, 13, 205), (232, 13, 205), (233, 20, 208), (233, 20, 208), (235, 26, 210), (235, 26, 210), 
+                 (235, 26, 210), (237, 40, 215), (237, 40, 215), (237, 40, 215), (237, 40, 215), (237, 40, 215), (238, 46, 218), (238, 46, 218), (238, 46, 218), 
+                 (239, 53, 220), (239, 53, 220), (239, 53, 220), (240, 59, 223), (240, 59, 223), (241, 66, 225), (241, 66, 225), (241, 66, 225), (243, 73, 228),
+                 (243, 73, 228), (243, 73, 228), (244, 79, 230), (244, 79, 230), (245, 86, 233), (245, 86, 233), (245, 86, 233), (246, 92, 235), (246, 92, 235), 
+                 (246, 92, 235), (247, 99, 238), (247, 99, 238), (248, 106, 240), (248, 106, 240), (248, 106, 240), (250, 112, 243), (250, 112, 243), (250, 112, 243), 
+                 (251, 119, 245), (251, 119, 245), (253, 132, 250), (253, 132, 250), (253, 132, 250), (253, 132, 250), (253, 132, 250), (253, 132, 250), (253, 132, 250), 
+                 (253, 132, 250), (232, 141, 248), (232, 141, 248), (232, 141, 248), (211, 149, 247), (211, 149, 247), (190, 158, 245), (190, 158, 245), (190, 158, 245), 
+                 (169, 166, 243), (169, 166, 243), (169, 166, 243), (148, 175, 242), (148, 175, 242), (126, 183, 240), (126, 183, 240), (126, 183, 240), (105, 192, 238), 
+                 (105, 192, 238), (105, 192, 238), (84, 201, 237), (84, 201, 237), (63, 209, 235), (63, 209, 235), (63, 209, 235), (42, 218, 233), (42, 218, 233), (42, 218, 233), (21, 226, 232), (21, 226, 232), (0, 235, 230), (0, 235, 230)]
+
+    storm = Image.open(storm)
+    storm = storm.convert('RGB')
+    storm_w, storm_h = storm.size
+    storm_pixels = []
+
+    for strm_x in range(storm_w):
+        for strm_y in range(storm_h):
+            sr, sg, sb = storm.getpixel((strm_x, strm_y))
+            color = (sr, sg, sb)
+            if color not in storm_pixels:
+                storm_pixels.append(color)
+
+    highest_index = -1
+    highest_qpf = -1
+        
+    for color in storm_pixels:
+        if color in qpf_scale:
+            index = qpf_scale.index(color)
+            qpf = index + 1
+            if qpf > highest_qpf:
+                highest_qpf = qpf
+                highest_index = index
+        
+    if highest_index != -1:
+        return int(highest_index/5.2)
+    else:
+        return 0
+                
+
+
+
 def storm_details():
-    global last_scan_time, loaded_radar,current_city,current_layer,directory, storm_list
+    global last_scan_time, loaded_radar, current_city, current_layer, directory, storm_list
     selected_storm = storm_list.curselection()
+    strm = storm_list.get(selected_storm)
+
+    print(f"The selected storm is scraped_individual\\{current_city}\\{strm}.png")
     if selected_storm:
-        detail_window = tk.Toplevel()
+        detail_window = Toplevel()
         detail_window.title("Storm Details")
         detail_window.geometry("1200x800")
         detail_window.config(bg='#242424')
         detail_window.state('zoomed')
 
-        # Obtain latest radar image
-        dt_pattern = f"{directory}/*/{current_city}-{layer_options_short[0]}*"
-        dt_files = glob.glob(dt_pattern, recursive=True)
-        dt_sorted_files = sorted(dt_files, key=os.path.getctime, reverse=True)
-        rad = dt_sorted_files[0]
-        dt_photo = ImageTk.PhotoImage(file=rad)
+        rad = f"{directory}\\scraped_individual\\{current_city}\\{strm}.png"
+        img = Image.open(rad)
+        highest_dbz = get_highest_qpf(rad)
+        resized_img = img.resize((900, 900))
+        dt_photo = ImageTk.PhotoImage(resized_img)
 
         #----------------------------------- Left side -----------------------------------
         detail_left_frame = tk.Frame(detail_window,bg="#242424")
@@ -226,19 +304,19 @@ def storm_details():
         detail_right_frame = tk.Frame(detail_window,bg="#242424")
         detail_right_frame.pack(side=LEFT, padx=10, pady=30, fill=BOTH,expand=TRUE)
 
-        dt_direction = tk.Label(detail_right_frame, text="Direction: ",font=("Arial", 16, "bold"),bg='#242424', fg='white',anchor='w')
+        dt_direction = tk.Label(detail_right_frame, text="Direction: N/A",font=("Arial", 16, "bold"),bg='#242424', fg='white',anchor='w')
         dt_direction.pack(fill=X, pady=10)
 
-        dt_speed = tk.Label(detail_right_frame, text="Speed: ",font=("Arial", 16, "bold"),bg='#242424', fg='white',anchor='w')
+        dt_speed = tk.Label(detail_right_frame, text="Speed:N/A mph",font=("Arial", 16, "bold"),bg='#242424', fg='white',anchor='w')
         dt_speed.pack(fill=X, pady=10)
 
-        dt_life = tk.Label(detail_right_frame, text="Known Storm Lifetime: ",font=("Arial", 16, "bold"),bg='#242424', fg='white',anchor='w')
+        dt_life = tk.Label(detail_right_frame, text="Known Storm Lifetime: N/A",font=("Arial", 16, "bold"),bg='#242424', fg='white',anchor='w')
         dt_life.pack(fill=X, pady=10)
 
-        dt_max_p = tk.Label(detail_right_frame, text="Max precip: ",font=("Arial", 16, "bold"),bg='#242424', fg='white',anchor='w')
+        dt_max_p = tk.Label(detail_right_frame, text=f"Max precip: {highest_dbz} dBZ",font=("Arial", 16, "bold"),bg='#242424', fg='white',anchor='w')
         dt_max_p.pack(fill=X, pady=10)
 
-        dt_hazards = tk.Label(detail_right_frame, text="Hazards: ",font=("Arial", 16, "bold"),bg='#242424', fg='white',anchor='w')
+        dt_hazards = tk.Label(detail_right_frame, text="Hazards: None",font=("Arial", 16, "bold"),bg='#242424', fg='white',anchor='w')
         dt_hazards.pack(fill=X, pady=10)
 
         def back_button():
@@ -252,8 +330,10 @@ def storm_details():
 # Radar image management
 def get_layer_imagery(city, layer, offset):
     global directory, loaded_radar, most_recent, prev_img
-
-    pattern = f"{directory}/*/{city}-{layer}*"
+    if layer == "baseRef":
+        pattern = f"{directory}/*/{city}_bxed-{layer}*"
+    else:
+        pattern = f"{directory}/*/{city}-{layer}*"
     files = glob.glob(pattern, recursive=True)
     sorted_files = sorted(files, key=os.path.getctime, reverse=False)
 
@@ -280,6 +360,32 @@ def update_rad(time):
     offset = int (time)
     get_layer_imagery(current_city, lay, offset)
 
+def update_storm_list():
+    global storms, storm_imgs, storm_list
+    storm_list.delete(0, tk.END)
+    storms = []
+    storm_imgs = []
+
+    ind_strms = f"{directory}\\scraped_individual\\{current_city}"
+    p_time = datetime.now().strftime("%m_%d_%Y")
+    indx = 1
+    if not os.path.exists(ind_strms):
+        os.makedirs(ind_strms)
+
+    for s in os.listdir(ind_strms):
+        if s!='storm_data.txt':
+            if s[-14:] != p_time:
+                p_time = s[-14:-4]
+            if s != 'overall_rad.png':
+                storm_imgs.append(s)
+                storms.append(f"STRM_{indx}_{p_time}")
+                indx += 1
+                print(s)
+    for storm in storms:
+        storm_list.insert(END, storm)
+    print(storms)
+
+
 # Radar Location arrays, storm arrays
 location_options_full = [
     "ABC- Bethel, AK", "ABR- Aberdeen, SD", "ABX- Albuquerque, NM", "ACG- Biorka Island, AK", "AEC- Nome, AK",
@@ -287,13 +393,13 @@ location_options_full = [
     "APD- Fairbanks, AK", "APX- Gaylord, MI", "ARX- La Crosse, WI", 
     "ATX- Seattle, WA", "BBX- Beale AFB, CA","BGM- Binghamton, NY", "BHX- Eureka, CA", "BIS- Bismarck, ND", "BLX- Billings, MT", 
     "BMX- Birmingham, AL", "BOX- Boston, MA", "BRO- Brownsville, TX", "BUF- Buffalo, NY", "BYX- Key West, FL", "CAE- Columbia, SC", 
-    "CBW- Caribou, ME", "CBX- Boise, ID", "CCX- State College, PA", "CLE- Cleveland, OH", "CLX- Charleston Air Force Base, SC", "CRI-", 
+    "CBW- Caribou, ME", "CBX- Boise, ID", "CCX- State College, PA", "CLE- Cleveland, OH", "CLX- Charleston Air Force Base, SC", 
     "CRP- Corpus Christi, TX", "CXX - Burlington, VT", "CYS- Cheyenne, WY", "DAX- Sacramento, CA","DDC- Dodge City, KS", "DFX- Laughlin Air Force Base, TX", 
     "DGX- Jackson, MS", "DIX - Philadelphia, PA",
     "DLH- Duluth, MN", "DMX- Des Moines, IA", "DOX- Dover Air Force Base, DE", "DTX- Detroit, MI", "DVN- Quad Cities, IA/IL", 
     "DYX- Dyess Air Force Base, TX", "EAX- Kansas City/Pleasant Hill, MO", "EMX- Tuscon, AZ", "ENX- Albany, NY", "EOX- Fort Rucker, AL", 
     "EPZ- El Paso, TX/Santa Teresa, NM", "ESX- Las Vegas, NV", "EVX- Valparaiso/Eglin AFB, FL", 
-    "EWX- Austin/San Antonio, TX", "Edwards AFB, CA", "FCX- Blacksburg, VA", "FDR- Frederick, OK", "FDX- Cannon AFB, NM", 
+    "EWX- Austin/San Antonio, TX", "EYX- Edwards AFB, CA", "FCX- Blacksburg, VA", "FDR- Frederick, OK", "FDX- Cannon AFB, NM", 
     "FFC- Peachtree City, GA", "FSD- Sioux Falls, SD", "FSX- Flagstaff, AZ", "FTG- Denver/Boulder, CO", "FWS- Dallas/Fort Worth, TX", 
     "GGW- Glasgow, MT", "GJX- Grand Junction, CO", "GLD- Goodland, KS", "GRB- Green Bay, WI", "GRK- Fort Hood, TX", "GRR- Grand Rapids, MI", 
     "GSP- Greenville/Spartanburg, SC", "GWX- Columbus AFB, MS", "GYX- Gray/Portland, ME", "HDX- Holloman AFB, NM", 
@@ -317,6 +423,7 @@ location_options_full = [
 
 selected_radars = []
 storms = []
+storm_imgs = []
 
 #Main UI
 window = tk.Tk()
@@ -421,7 +528,7 @@ sl_border = tk.Frame(right_frame, relief="sunken", bg='#E5E5E5')
 sl_border.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
 storm_list = tk.Listbox(sl_border, height=6, width=20, bg='#E5E5E5', bd=0, highlightthickness=0,font=("Arial", 12))
 for storm in storms:
-    storm.insert(tk.END, location)
+     storm_list.insert(END, storm)
 
 my_scrollbar = tk.Scrollbar(sl_border, orient=tk.VERTICAL, command=storm_list.yview)
 storm_list.configure(yscrollcommand=my_scrollbar.set)
@@ -459,6 +566,7 @@ time_slider = tk.Scale(right_frame,from_=-30, to=30, orient=tk.HORIZONTAL, lengt
 time_slider.pack(side=RIGHT,pady=20,padx=20)
 time_slider.config(command=update_rad)
 
+update_storm_list()
 update_rad(time_slider.get())
 add_default_loc()
 window.mainloop()

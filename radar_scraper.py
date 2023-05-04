@@ -3,6 +3,7 @@ import sys
 import glob
 import numpy as np
 import subprocess
+import storm_identification_main
 
 from io import BytesIO
 from selenium import webdriver
@@ -71,6 +72,14 @@ def run_capture(driver, radar_layer, file_name):
         os.makedirs(new_date_dir)
 
     image.save(f"{directory}/{dir_day}/{radar_location}-{radar_layer_name}-{time_stamp}.png")
+    if radar_layer_name == "baseRef":
+        try:
+            print("Trying")
+            print(f"{directory}\\{dir_day}\\{radar_location}-{radar_layer_name}-{time_stamp}.png")
+            storm_identification_main.run_scraped_data(f"{directory}\\{dir_day}\\{radar_location}-{radar_layer_name}-{time_stamp}.png", radar_site)
+        except:
+            print("Failed to run storm identifier")
+
     check_identical_scan(radar_location, radar_layer_name)
 
 def crop_screenshot(driver, element=None, x=619, y=25, width=900, height=900):
@@ -96,21 +105,23 @@ def check_identical_scan(loc, lay):
     pattern = f"{directory}/*/{loc}-{lay}*"
     files = glob.glob(pattern, recursive=True)
     sorted_files = sorted(files, key=os.path.getctime, reverse=True)
+    try:
+        current = Image.open(sorted_files[0])
+        previous = Image.open(sorted_files[1])
+        cur_arr = np.array(current)
+        pre_arr = np.array(previous)
 
-    current = Image.open(sorted_files[0])
-    previous = Image.open(sorted_files[1])
-    cur_arr = np.array(current)
-    pre_arr = np.array(previous)
+        print(sorted_files[0])
+        print(sorted_files[1])
+        diff = np.sum(cur_arr != pre_arr)
 
-    print(sorted_files[0])
-    print(sorted_files[1])
-    diff = np.sum(cur_arr != pre_arr)
-
-    if diff == 0:
-        os.remove(current.filename)
-        print("Duplicate, deleted most recent scan")
-    #else:
-        #subprocess.call(["python", "storm_identification_main.py"])
+        if diff == 0:
+            os.remove(current.filename)
+            print("Duplicate, deleted most recent scan")
+        #else:
+            #subprocess.call(["python", "storm_identification_main.py"])
+    except:
+        print("No previous file, keeping original")
 
 rad_layers = ["N0B", "N0G", "N0C", "DVL", "EET"]
 
